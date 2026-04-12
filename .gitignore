@@ -1,0 +1,13 @@
+.env
+reports/
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+.Python
+.venv/
+venv/
+*.xlsx~
+# 本地业务导出表格，勿提交
+*域名统计*.xlsx

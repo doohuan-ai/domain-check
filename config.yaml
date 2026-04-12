@@ -1,0 +1,44 @@
+# 项目内唯一配置文件。敏感项建议用环境变量（见 .env.example）。
+# 待测 URL 不在此文件中配置，必须通过命令行: domain-test -d path/to/domains.txt
+
+router:
+  host: "192.168.11.254"
+  port: 22100
+  user: "your_router_user"
+  # password: 建议使用环境变量 ROUTER_PASSWORD
+  lo_interface: lo
+  ssh_encoding: utf-8
+  nat_settle_seconds: 8
+
+nat:
+  target_src: "192.168.11.115"
+
+browser:
+  # 使用本机 Google Chrome（Playwright 通过 channel 或路径启动，无需 playwright install chromium）
+  channel: chrome
+  # 若 Chrome 不在默认位置，可填写绝对路径，或使用环境变量 CHROME_PATH
+  # chrome_executable: "/usr/bin/google-chrome-stable"
+  incognito: true
+  headless: true
+  goto_timeout_ms: 60000
+  wait_until: domcontentloaded
+  screenshot_on_success: true
+  viewport_width: 1280
+  viewport_height: 720
+
+access:
+  # 在 HTTP 2xx 时仍扫描页面文本，命中则判为「地区/封锁」（易误判，默认关闭）
+  enable_body_keyword_check: false
+  body_text_max_chars: 20000
+  block_keywords:
+    - "access denied"
+    - "forbidden"
+    - "not available in your region"
+    - "地区限制"
+
+output:
+  # 报告根目录不在此配置，请使用命令行: --output <DIR>
+  excel_prefix: domain_check
+  embed_screenshot_max_width: 300
+  embed_screenshot_max_height: 180
+  data_row_height: 150

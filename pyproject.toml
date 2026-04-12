@@ -1,0 +1,41 @@
+[project]
+name = "domain-test"
+version = "0.5.0"
+description = "多出口 IP 网站可达性巡检（Playwright + RouterOS SSH）"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "domain-test contributors" }]
+keywords = ["routeros", "mikrotik", "playwright", "nat", "snat", "domain-check"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: System Administrators",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "paramiko>=3.4.0",
+  "openpyxl>=3.1.0",
+  "PyYAML>=6.0.1",
+  "playwright>=1.40.0",
+  "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["build>=1.0.0", "twine>=5.0.0"]
+
+[project.scripts]
+domain-test = "domain_test.runner:cli_entry"
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["domain_test*"]
