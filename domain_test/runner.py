@@ -13,7 +13,6 @@ from playwright.sync_api import Error as PlaywrightError
 from domain_test.browser_check import UrlCheckResult, browser_session, check_url_with_page
 from domain_test.config import AppConfig, load_config, resolve_output_dir, validate_config
 from domain_test.domains_file import load_domains_from_file
-from domain_test.paths import resolve_config_yaml
 from domain_test.reporting_excel import build_workbook
 from domain_test.router_ssh import change_nat, get_lo_ips
 
@@ -32,16 +31,15 @@ def _safe_file_tag(text: str) -> str:
 
 
 def apply_cli_args(cfg: AppConfig, args: argparse.Namespace) -> None:
-    """将命令行参数写入内存中的 AppConfig（不写回 config.yaml）。"""
+    """将命令行参数写入内存中的 AppConfig（不写回磁盘）。"""
     out = getattr(args, "output", None)
     if out is not None and str(out).strip():
         cfg.output.dir = str(Path(out).expanduser())
     else:
-        # 未指定 -o：报告根目录为「当前工作目录」（run_<时间戳>/ 直接建在 cwd 下）
         cfg.output.dir = "."
 
     if getattr(args, "headless", False) and getattr(args, "no_headless", False):
-        raise ValueError("不能同时指定 --headless 与 --no-headless")
+        raise ValueError("不能同时指定无头与有界面（如 -H 与 -W，或 --headless 与 --no-headless）")
 
     if getattr(args, "headless", False):
         cfg.browser.headless = True
@@ -51,7 +49,7 @@ def apply_cli_args(cfg: AppConfig, args: argparse.Namespace) -> None:
     to = getattr(args, "timeout", None)
     if to is not None:
         if to <= 0:
-            raise ValueError("--timeout 须为毫秒正整数")
+            raise ValueError("-t / --timeout 须为毫秒正整数")
         cfg.browser.goto_timeout_ms = int(to)
 
 
@@ -114,6 +112,13 @@ def main(argv: list[str] | None = None) -> int:
         help="从文本文件读取待测 URL（每行一个，# 为注释）；短选项 -d",
     )
     parser.add_argument(
+        "-c",
+        "--config",
+        metavar="PATH",
+        default=None,
+        help="可选：YAML 配置路径（-c）；与内置默认深度合并",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         metavar="DIR",
@@ -124,29 +129,33 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "-H",
         "--headless",
         action="store_true",
-        help="临时使用无头模式（覆盖 config 中的 browser.headless）",
+        help="强制无头模式（-H，覆盖 browser.headless）",
     )
     parser.add_argument(
+        "-W",
         "--no-headless",
         action="store_true",
-        help="临时显示浏览器窗口，便于调试（覆盖 browser.headless 为 false）",
+        help="有界面：弹出浏览器窗口（-W = Window；等同 --no-headless，便于调试）",
     )
     parser.add_argument(
+        "-t",
         "--timeout",
         metavar="MS",
         type=int,
         default=None,
-        help="单次页面导航超时，单位毫秒（覆盖 browser.goto_timeout_ms）",
+        help="单次 page.goto 超时毫秒（-t，覆盖 browser.goto_timeout_ms）",
     )
     args = parser.parse_args(argv)
 
-    try:
-        cfg_path = resolve_config_yaml()
-    except FileNotFoundError as e:
-        print(str(e), file=sys.stderr)
-        return 1
+    cfg_path: Path | None = None
+    if args.config:
+        cfg_path = Path(args.config)
+        if not cfg_path.is_file():
+            print(f"配置文件不存在: {cfg_path.resolve()}", file=sys.stderr)
+            return 1
 
     try:
         cfg = load_config(cfg_path)
@@ -161,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         ValueError,
         RuntimeError,
         OSError,
+        FileNotFoundError,
         paramiko.SSHException,
         PlaywrightError,
     ) as e:

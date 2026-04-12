@@ -1,0 +1,40 @@
+# 程序内置默认（随包安装）。敏感项：ROUTER_* / ROUTER_PASSWORD。
+# 用 -c/--config 指向的 YAML 与本文件深度合并。
+# 每个键的详细说明见仓库根目录 config.yaml 顶部注释（与本文件结构相同）。
+
+router:
+  host: ""
+  port: 22
+  user: ""
+  password: ""
+  lo_interface: lo
+  ssh_encoding: utf-8
+  nat_settle_seconds: 8
+
+nat:
+  target_src: ""
+
+browser:
+  channel: chrome
+  incognito: true
+  headless: true
+  goto_timeout_ms: 60000
+  wait_until: domcontentloaded
+  screenshot_on_success: false
+  viewport_width: 1280
+  viewport_height: 720
+
+access:
+  enable_body_keyword_check: false
+  body_text_max_chars: 20000
+  block_keywords:
+    - "access denied"
+    - "forbidden"
+    - "not available in your region"
+    - "地区限制"
+
+output:
+  excel_prefix: domain_check
+  embed_screenshot_max_width: 300
+  embed_screenshot_max_height: 180
+  data_row_height: 150

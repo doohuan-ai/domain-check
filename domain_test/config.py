@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from importlib import resources
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,26 @@ def _env_int(name: str, default: int) -> int:
         return int(v)
     except ValueError:
         return default
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """递归合并字典；override 中的键覆盖 base。"""
+    out: dict[str, Any] = dict(base)
+    for k, v in override.items():
+        if k in out and isinstance(out[k], dict) and isinstance(v, dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def load_builtin_config_dict() -> dict[str, Any]:
+    """读取包内 builtin_config.yaml。"""
+    text = resources.files("domain_test").joinpath("builtin_config.yaml").read_text(encoding="utf-8")
+    data = yaml.safe_load(text)
+    if not isinstance(data, dict):
+        raise ValueError("内置 builtin_config.yaml 格式错误")
+    return data
 
 
 @dataclass
@@ -74,7 +95,7 @@ class AccessConfig:
 
 @dataclass
 class OutputConfig:
-    """报告根目录仅由命令行 ``--output`` 注入，不从 YAML 读取。"""
+    """报告根目录仅由命令行 ``--output`` / ``-o`` 注入，不从 YAML 读取。"""
     dir: str = ""
     excel_prefix: str = "domain_check"
     embed_screenshot_max_width: int = 300
@@ -145,11 +166,21 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     )
 
 
-def load_config(path: Path | str) -> AppConfig:
-    p = Path(path)
-    raw = yaml.safe_load(p.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
-        raise ValueError(f"配置文件必须是 YAML 映射: {p}")
+def load_config(path: Path | str | None = None) -> AppConfig:
+    """
+    先加载包内 ``builtin_config.yaml``，若提供 ``path`` 则与其 YAML **深度合并**（文件覆盖同名字段），
+    再应用环境变量覆盖路由器与 Chrome 路径。
+    """
+    raw = load_builtin_config_dict()
+    if path is not None:
+        p = Path(path)
+        if not p.is_file():
+            raise FileNotFoundError(f"配置文件不存在: {p.resolve()}")
+        override = yaml.safe_load(p.read_text(encoding="utf-8"))
+        if not isinstance(override, dict):
+            raise ValueError(f"配置文件必须是 YAML 映射: {p}")
+        raw = _deep_merge(raw, override)
+
     cfg = _dict_to_appconfig(raw)
 
     r = cfg.router
@@ -180,14 +211,14 @@ def validate_config(cfg: AppConfig) -> None:
     missing = []
     r = cfg.router
     if not r.host:
-        missing.append("ROUTER_HOST 或 config 中的 router.host")
+        missing.append("ROUTER_HOST、或 -c/--config 中的 router.host")
     if not r.user:
-        missing.append("ROUTER_USER 或 config 中的 router.user")
+        missing.append("ROUTER_USER、或 -c/--config 中的 router.user")
     if not r.password:
-        missing.append("ROUTER_PASSWORD 或 config 中的 router.password")
+        missing.append("ROUTER_PASSWORD、或 -c/--config 中的 router.password")
     if not cfg.nat.target_src:
-        missing.append("nat.target_src")
+        missing.append("nat.target_src（-c/--config 或 DOMAIN_TEST_NAT_TARGET_SRC）")
     if not cfg.urls:
-        missing.append("命令行参数 --domains（域名列表文件）")
+        missing.append("命令行参数 -d / --domains（域名列表文件）")
     if missing:
         raise ValueError("配置不完整: " + ", ".join(missing))

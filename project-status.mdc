@@ -1,0 +1,11 @@
+# domain-test 开发进度（简）
+
+## 当前行为（0.1.0）
+
+- **配置**：包内 `builtin_config.yaml` 为默认；`--config` 深度合并覆盖；`ROUTER_*` 等环境变量再覆盖。
+- **打包**：`[tool.setuptools.package-data]` 已包含 `domain_test/builtin_config.yaml`，wheel 内可正常加载内置默认。
+- **文档**：README、`docs/后续操作指南.md` 已去掉「必须在项目根放 config.yaml」的旧描述。
+
+## 后续可选
+
+- CHANGELOG、CI 里 pytest、退出码与 JSON 报告（见 README「架构与改进建议」）。

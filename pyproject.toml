@@ -1,6 +1,6 @@
 [project]
 name = "domain-test"
-version = "0.5.0"
+version = "0.1.0"
 description = "多出口 IP 网站可达性巡检（Playwright + RouterOS SSH）"
 readme = "README.md"
 license = "MIT"
@@ -39,3 +39,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["domain_test*"]
+
+[tool.setuptools.package-data]
+domain_test = ["builtin_config.yaml"]

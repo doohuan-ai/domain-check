@@ -1,11 +1,3 @@
-"""
-已废弃：请使用 Playwright 版巡检工具。
-
-推荐入口：在项目根目录执行
-  python -m domain_test -d domains.txt --output ./reports
-详见 README.md。
-"""
-
 import paramiko
 import subprocess
 import time
