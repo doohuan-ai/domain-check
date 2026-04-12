@@ -39,13 +39,12 @@ def _normalize_wait_until(raw: str) -> str:
 
 _CHROME_INSTALL_HINT = (
     "请先安装 Google Chrome（官方下载：https://www.google.com/chrome/ ）。\n"
-    "若已安装但仍失败，请设置环境变量 CHROME_PATH / GOOGLE_CHROME_BIN，"
-    "或在项目内 config.yaml 中设置 browser.chrome_executable 为可执行文件绝对路径。"
+    "若已安装但仍失败，请在 -c 指定的 YAML 里设置 browser.chrome_path 为可执行文件绝对路径。"
 )
 
 
 def _launch_browser(p, cfg: AppConfig):
-    """使用本机 Google Chrome：优先配置/环境变量中的路径，否则 channel=chrome，再否则探测常见安装路径。"""
+    """使用本机 Google Chrome：优先 browser.chrome_path，否则 channel=chrome，再否则探测常见安装路径。"""
     bcfg = cfg.browser
     args: list[str] = []
     if bcfg.incognito:
@@ -56,15 +55,15 @@ def _launch_browser(p, cfg: AppConfig):
         "args": args,
     }
 
-    if bcfg.chrome_executable:
-        exe = Path(bcfg.chrome_executable).expanduser()
+    if bcfg.chrome_path:
+        exe = Path(bcfg.chrome_path).expanduser()
         if not exe.is_file():
-            raise FileNotFoundError(f"browser.chrome_executable 不是有效文件: {exe}")
+            raise FileNotFoundError(f"browser.chrome_path 不是有效文件: {exe}")
         try:
             return p.chromium.launch(**common, executable_path=str(exe))
         except PlaywrightError as e:
             raise RuntimeError(
-                f"无法启动 Google Chrome（已指定 browser.chrome_executable={exe}）。\n"
+                f"无法启动 Google Chrome（已指定 browser.chrome_path={exe}）。\n"
                 f"{_CHROME_INSTALL_HINT}\n底层错误: {e}"
             ) from e
 

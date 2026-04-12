@@ -1,29 +1,11 @@
 from __future__ import annotations
 
-import os
 from importlib import resources
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
-
-
-def _env(name: str, default: str | None = None) -> str | None:
-    v = os.environ.get(name)
-    if v is not None and v != "":
-        return v
-    return default
-
-
-def _env_int(name: str, default: int) -> int:
-    v = _env(name)
-    if v is None:
-        return default
-    try:
-        return int(v)
-    except ValueError:
-        return default
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -39,11 +21,16 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 def load_builtin_config_dict() -> dict[str, Any]:
     """读取包内 builtin_config.yaml。"""
-    text = resources.files("domain_test").joinpath("builtin_config.yaml").read_text(encoding="utf-8")
+    text = read_builtin_config_yaml_text()
     data = yaml.safe_load(text)
     if not isinstance(data, dict):
         raise ValueError("内置 builtin_config.yaml 格式错误")
     return data
+
+
+def read_builtin_config_yaml_text() -> str:
+    """内置 YAML 原文（供 ``--print-template`` 与 ``load_builtin_config_dict``）。"""
+    return resources.files("domain_test").joinpath("builtin_config.yaml").read_text(encoding="utf-8")
 
 
 @dataclass
@@ -66,7 +53,7 @@ class NatConfig:
 class BrowserConfig:
     """默认使用本机 Google Chrome（Playwright channel 或显式路径），无痕通过启动参数实现。"""
     channel: str = "chrome"
-    chrome_executable: str | None = None
+    chrome_path: str | None = None
     incognito: bool = True
     headless: bool = True
     goto_timeout_ms: int = 60_000
@@ -95,8 +82,8 @@ class AccessConfig:
 
 @dataclass
 class OutputConfig:
-    """报告根目录仅由命令行 ``--output`` / ``-o`` 注入，不从 YAML 读取。"""
-    dir: str = ""
+    """报告根目录由 YAML ``output.dir`` 提供（默认 ``.`` 即 cwd）。"""
+    dir: str = "."
     excel_prefix: str = "domain_check"
     embed_screenshot_max_width: int = 300
     embed_screenshot_max_height: int = 180
@@ -105,13 +92,45 @@ class OutputConfig:
 
 @dataclass
 class AppConfig:
-    """urls 仅由命令行 --domains 注入，不从 YAML 读取。"""
+    """待测地址来自 YAML 顶层 ``urls``（列表或换行分隔的字符串）。"""
     urls: list[str] = field(default_factory=list)
     router: RouterConfig = field(default_factory=RouterConfig)
     nat: NatConfig = field(default_factory=NatConfig)
     browser: BrowserConfig = field(default_factory=BrowserConfig)
     access: AccessConfig = field(default_factory=AccessConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+
+
+def _parse_urls(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        out: list[str] = []
+        for u in raw:
+            if isinstance(u, str) and u.strip():
+                out.append(u.strip())
+        return out
+    if isinstance(raw, str):
+        lines: list[str] = []
+        for line in raw.splitlines():
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            lines.append(s)
+        return lines
+    return []
+
+
+def _parse_chrome_path(browser_dict: dict[str, Any]) -> str | None:
+    raw = browser_dict.get("chrome_path")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
+def _parse_user_agent(browser_dict: dict[str, Any]) -> str | None:
+    ua = browser_dict.get("user_agent")
+    if isinstance(ua, str) and ua.strip():
+        return ua.strip()
+    return None
 
 
 def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
@@ -125,10 +144,11 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
         channel_val = "chrome"
     else:
         channel_val = str(ch_raw)
-    cex = b.get("chrome_executable")
-    chrome_exe: str | None = str(cex).strip() if isinstance(cex, str) and cex.strip() else None
+    out_dir = o.get("dir", ".")
+    if not isinstance(out_dir, str) or not str(out_dir).strip():
+        out_dir = "."
     return AppConfig(
-        urls=[],
+        urls=_parse_urls(d.get("urls")),
         router=RouterConfig(
             host=str(r.get("host", "")),
             port=int(r.get("port", 22)),
@@ -141,7 +161,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
         nat=NatConfig(target_src=str(n.get("target_src", ""))),
         browser=BrowserConfig(
             channel=channel_val,
-            chrome_executable=chrome_exe,
+            chrome_path=_parse_chrome_path(b),
             incognito=bool(b.get("incognito", True)),
             headless=bool(b.get("headless", True)),
             goto_timeout_ms=int(b.get("goto_timeout_ms", 60_000)),
@@ -149,7 +169,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             screenshot_on_success=bool(b.get("screenshot_on_success", False)),
             viewport_width=int(b.get("viewport_width", 1280)),
             viewport_height=int(b.get("viewport_height", 720)),
-            user_agent=b.get("user_agent") if isinstance(b.get("user_agent"), str) else None,
+            user_agent=_parse_user_agent(b),
         ),
         access=AccessConfig(
             enable_body_keyword_check=bool(a.get("enable_body_keyword_check", False)),
@@ -157,7 +177,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             block_keywords=list(a.get("block_keywords") or AccessConfig().block_keywords),
         ),
         output=OutputConfig(
-            dir="",
+            dir=str(out_dir).strip(),
             excel_prefix=str(o.get("excel_prefix", "domain_check")),
             embed_screenshot_max_width=int(o.get("embed_screenshot_max_width", 300)),
             embed_screenshot_max_height=int(o.get("embed_screenshot_max_height", 180)),
@@ -168,8 +188,8 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
 
 def load_config(path: Path | str | None = None) -> AppConfig:
     """
-    先加载包内 ``builtin_config.yaml``，若提供 ``path`` 则与其 YAML **深度合并**（文件覆盖同名字段），
-    再应用环境变量覆盖路由器与 Chrome 路径。
+    先加载包内 ``builtin_config.yaml``，若提供 ``path`` 则与其 YAML **深度合并**（文件覆盖同名字段）。
+    全部运行参数均来自合并后的 YAML。
     """
     raw = load_builtin_config_dict()
     if path is not None:
@@ -181,22 +201,7 @@ def load_config(path: Path | str | None = None) -> AppConfig:
             raise ValueError(f"配置文件必须是 YAML 映射: {p}")
         raw = _deep_merge(raw, override)
 
-    cfg = _dict_to_appconfig(raw)
-
-    r = cfg.router
-    r.host = _env("ROUTER_HOST", r.host) or ""
-    r.port = _env_int("ROUTER_PORT", r.port)
-    r.user = _env("ROUTER_USER", r.user) or ""
-    r.password = _env("ROUTER_PASSWORD", r.password) or ""
-
-    if _env("DOMAIN_TEST_NAT_TARGET_SRC"):
-        cfg.nat.target_src = _env("DOMAIN_TEST_NAT_TARGET_SRC", "") or ""
-
-    chrome_env = _env("CHROME_PATH") or _env("GOOGLE_CHROME_BIN")
-    if chrome_env:
-        cfg.browser.chrome_executable = chrome_env
-
-    return cfg
+    return _dict_to_appconfig(raw)
 
 
 def resolve_output_dir(cfg: AppConfig) -> Path:
@@ -211,14 +216,14 @@ def validate_config(cfg: AppConfig) -> None:
     missing = []
     r = cfg.router
     if not r.host:
-        missing.append("ROUTER_HOST、或 -c/--config 中的 router.host")
+        missing.append("router.host（须在 -c 中填写）")
     if not r.user:
-        missing.append("ROUTER_USER、或 -c/--config 中的 router.user")
+        missing.append("router.user")
     if not r.password:
-        missing.append("ROUTER_PASSWORD、或 -c/--config 中的 router.password")
+        missing.append("router.password")
     if not cfg.nat.target_src:
-        missing.append("nat.target_src（-c/--config 或 DOMAIN_TEST_NAT_TARGET_SRC）")
+        missing.append("nat.target_src")
     if not cfg.urls:
-        missing.append("命令行参数 -d / --domains（域名列表文件）")
+        missing.append("urls（须在 -c 中至少填写一个待测 URL）")
     if missing:
         raise ValueError("配置不完整: " + ", ".join(missing))

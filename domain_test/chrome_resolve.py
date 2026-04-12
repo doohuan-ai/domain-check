@@ -10,19 +10,11 @@ from pathlib import Path
 
 def find_chrome_executable() -> Path | None:
     """
-    查找顺序：
-    1. 环境变量 CHROME_PATH 或 GOOGLE_CHROME_BIN（若存在且为文件）
-    2. Windows：Program Files / ProgramFiles(x86) / LocalAppData 下常见路径
-    3. macOS：/Applications/Google Chrome.app/...
-    4. Linux：PATH 中的 google-chrome-stable、google-chrome、chrome
+    在未指定 ``browser.chrome_path`` 时，按常见安装位置探测 Chrome：
+    Windows：Program Files / ProgramFiles(x86) / LocalAppData；
+    macOS：/Applications/Google Chrome.app/...；
+    Linux：PATH 中的 google-chrome-stable、google-chrome、chrome。
     """
-    for key in ("CHROME_PATH", "GOOGLE_CHROME_BIN"):
-        env = os.environ.get(key)
-        if env:
-            p = Path(env).expanduser()
-            if p.is_file():
-                return p
-
     if os.name == "nt":
         pf = os.environ.get("PROGRAMFILES", r"C:\Program Files")
         pfx86 = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")

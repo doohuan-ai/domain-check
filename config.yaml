@@ -1,57 +1,18 @@
-# =============================================================================
-# 使用方式：与程序内置默认合并。例：
-#   domain-test -d domains.txt -c ./config.yaml
-# 未列出的键会沿用内置值。密码建议只用环境变量 ROUTER_PASSWORD，不要写进文件。
-#
-# 命令行（只影响本次运行，不写回本文件）：
-#   -d   域名列表文件    -c   本 YAML 路径    -o   报告根目录
-#   -H   强制无头        -W   有界面（W = Window，弹出浏览器窗口）
-#   -t   page.goto 超时毫秒
-# 待测 URL 只用 -d；报告目录只用 -o，下面不配。
-# =============================================================================
-#
-# --- router：SSH 登录 RouterOS ---
-#   host                 路由器 SSH 地址（环境变量 ROUTER_HOST 可覆盖）
-#   port                 SSH 端口，默认 22（ROUTER_PORT）
-#   user                 SSH 用户名（ROUTER_USER）
-#   password             SSH 密码，不推荐写文件（ROUTER_PASSWORD 优先）
-#   lo_interface         有公网 loopback 地址的接口名（如 lo），用来列出口 IP
-#   ssh_encoding         终端输出解码，如 utf-8、gbk，避免 /ip address print 乱码
-#   nat_settle_seconds   每次改 NAT 后等待秒数，再开始测 URL
-#
-# --- nat ---
-#   target_src           要做 SNAT 的内网源 IP（测试机或指定主机）（DOMAIN_TEST_NAT_TARGET_SRC）
-#
-# --- browser：Playwright 启动本机 Chrome ---
-#   channel              一般为 chrome（本机已装的 Google Chrome）
-#   chrome_executable    可选，Chrome 绝对路径；不设则用 CHROME_PATH / GOOGLE_CHROME_BIN 或自动找
-#   incognito            true/false 是否无痕
-#   headless             true/false 是否无头；-H / -W 可临时改
-#   goto_timeout_ms      单次打开页面的超时毫秒；-t 可临时改
-#   wait_until           传给 Playwright，如 domcontentloaded、load、networkidle
-#   screenshot_on_success  HTTP 成功时是否仍截全页图
-#   viewport_width       视口宽（像素）
-#   viewport_height      视口高（像素）
-#   user_agent           可选，自定义 User-Agent；不设则浏览器默认
-#
-# --- access：用页面正文辅助判「受限」---
-#   enable_body_keyword_check  true 时在 HTTP 2xx 也扫正文（易误判）
-#   body_text_max_chars        最多取多少字符参与扫描，防超大页
-#   block_keywords             列表，正文中出现任一串则判受限（地区限制等）
-#
-# --- output：Excel 与嵌入截图 ---
-#   excel_prefix                 生成的 xlsx 文件名前缀 + 时间戳 + .xlsx
-#   embed_screenshot_max_width   嵌入 Excel 的图最大宽度（像素）
-#   embed_screenshot_max_height  嵌入图最大高度（像素）
-#   data_row_height              Excel 数据行高度，方便看图
-#
-# =============================================================================
+# 示例：domain-test -c ./本文件.yaml（与内置深度合并）
+# 带全部注释的模板：domain-test --print-template（与包内 builtin_config.yaml 一致）
+# 最少在 -c 中补：urls、router.host/user/password、nat.target_src
+
+# 待测 URL，直接写在 YAML 里（列表）；也可用多行字符串，每行一个 URL，# 开头为注释
+urls:
+  - "https://www.example.com"
 
 router:
+  # 路由器 SSH 地址（-c 必填）
   host: "192.168.11.254"
   port: 22100
   user: "your_router_user"
-  # password: 见上文，建议 ROUTER_PASSWORD
+  # -c 必填；勿提交含真实密码的副本
+  password: "your_router_password"
   lo_interface: lo
   ssh_encoding: utf-8
   nat_settle_seconds: 8
@@ -61,7 +22,7 @@ nat:
 
 browser:
   channel: chrome
-  # chrome_executable: "/usr/bin/google-chrome-stable"
+  # chrome_path: "/usr/bin/google-chrome-stable"
   incognito: true
   headless: true
   goto_timeout_ms: 60000
@@ -69,6 +30,7 @@ browser:
   screenshot_on_success: true
   viewport_width: 1280
   viewport_height: 720
+  # user_agent: "Mozilla/5.0 ..."
 
 access:
   enable_body_keyword_check: false
@@ -80,6 +42,7 @@ access:
     - "地区限制"
 
 output:
+  dir: "."
   excel_prefix: domain_check
   embed_screenshot_max_width: 300
   embed_screenshot_max_height: 180

@@ -1,32 +1,60 @@
-# 程序内置默认（随包安装）。敏感项：ROUTER_* / ROUTER_PASSWORD。
-# 用 -c/--config 指向的 YAML 与本文件深度合并。
-# 每个键的详细说明见仓库根目录 config.yaml 顶部注释（与本文件结构相同）。
+# =============================================================================
+# 内置完整参数骨架（domain-test --print-template 即打印本文件，含全部注释）。
+# 与 -c path/to.yaml 深度合并：-c 中出现的键覆盖本文件；未写的键沿用下列默认值。
+# 须用 -c 补全后方可运行：urls（至少一条）、router.host / user / password、nat.target_src。
+# =============================================================================
+
+# 待测 URL：字符串列表；也可改为多行标量，每行一个 URL，# 开头为行注释
+urls: []
 
 router:
+  # 路由器 SSH 地址（-c 必填）
   host: ""
+  # SSH 端口
   port: 22
+  # SSH 用户名（-c 必填）
   user: ""
+  # SSH 密码（-c 必填；勿把含真实密码的文件提交 Git）
   password: ""
+  # 公网 loopback 所在接口名，用于列出出口 IP
   lo_interface: lo
+  # SSH 终端输出解码，防 /ip address print 乱码
   ssh_encoding: utf-8
+  # 每次改 NAT 后等待秒数再测 URL
   nat_settle_seconds: 8
 
 nat:
+  # 做 SNAT 的内网源 IP（-c 必填）
   target_src: ""
 
 browser:
+  # 本机 Chrome，一般为 chrome
   channel: chrome
+  # Chrome 可执行文件绝对路径；空串表示不设，按系统默认探测
+  chrome_path: ""
+  # 是否无痕
   incognito: true
+  # 是否无头（后台无窗口）
   headless: true
+  # 单次 page.goto 超时毫秒
   goto_timeout_ms: 60000
+  # 传给 Playwright：domcontentloaded / load / networkidle 等
   wait_until: domcontentloaded
+  # HTTP 成功时是否仍截全页图
   screenshot_on_success: false
+  # 视口宽（像素）
   viewport_width: 1280
+  # 视口高（像素）
   viewport_height: 720
+  # 自定义 User-Agent；null 表示使用浏览器默认
+  user_agent: null
 
 access:
+  # true 时在 HTTP 2xx 也扫正文，命中 block_keywords 则判受限（易误判）
   enable_body_keyword_check: false
+  # 参与扫描的正文最大字符数
   body_text_max_chars: 20000
+  # 正文中出现任一子串则判受限（仅当 enable_body_keyword_check 为 true 时生效）
   block_keywords:
     - "access denied"
     - "forbidden"
@@ -34,7 +62,13 @@ access:
     - "地区限制"
 
 output:
+  # 报告根目录（相对 cwd）；其下会创建 run_<时间戳>/
+  dir: "."
+  # Excel 文件名前缀，实际为 前缀_时间戳.xlsx
   excel_prefix: domain_check
+  # 嵌入 Excel 的截图最大宽度（像素）
   embed_screenshot_max_width: 300
+  # 嵌入 Excel 的截图最大高度（像素）
   embed_screenshot_max_height: 180
+  # Excel 数据行高度
   data_row_height: 150
