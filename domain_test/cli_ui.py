@@ -174,6 +174,8 @@ def _status_cell(label: str) -> tuple[str, str]:
         return "正常", "dt.ok"
     if label == "blocked":
         return "受限", "dt.warn"
+    if label == "challenge":
+        return "验证墙", "dt.warn"
     return "失败", "dt.err"
 
 

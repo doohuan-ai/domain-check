@@ -73,6 +73,13 @@ browser:
   post_goto_load_state_timeout_ms: 30000
   # 再等固定毫秒后做正文检测与截图，减轻「只截到转圈」；纯静态站可改小或 0
   post_goto_settle_ms: 1500
+  # HTTP 2xx 且通过关键词检查后：随机滚动/点击若干可见链接再截图（慎用；仅异步巡检）
+  random_surfer_enabled: false
+  random_surfer_budget_ms: 12000
+  random_surfer_max_clicks: 3
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 3
+  random_surfer_mouse_wiggle: true
   # 自定义 User-Agent；null 表示使用浏览器默认
   user_agent: null
 
@@ -87,6 +94,24 @@ access:
     - "forbidden"
     - "not available in your region"
     - "地区限制"
+  # HTTP 2xx 时扫正文，命中则判为「验证墙」（不尝试绕过验证码）
+  captcha_keywords:
+    - "slide to verify"
+    - "please slide"
+    - "unusual traffic"
+    - "verify you are human"
+    - "captcha"
+    - "人机验证"
+    - "安全验证"
+
+# 切换 NAT 后、开浏览器前：用 urllib 探测若干 URL，摘要写入 Excel「出口探针」列（与本项目一体，无需另建服务）
+probe:
+  enabled: false
+  timeout_ms: 8000
+  urls: []
+  # 示例（按需取消注释）:
+  # urls:
+  #   - "https://www.cloudflare.com/cdn-cgi/trace"
 
 output:
   # 报告根目录（相对 cwd）；其下会创建 <excel_prefix>_<时间戳>/（与 xlsx 同名前缀）

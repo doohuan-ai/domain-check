@@ -11,8 +11,25 @@ urls: [
     "https://youmind.com",
     "https://x.com",
     "https://yuid.com",
-    "https://example.com",
-    "https://Weprovideawebserviceontheexampledomainhoststoprovidebasicinformation.com"
+    "https://Weprovideawebserviceontheexampledomainhoststoprovidebasicinformation.com",
+    "https://www.google.com",
+    "https://www.bing.com",
+    "https://www.yahoo.com",
+    "https://www.baidu.com",
+    "https://www.sogou.com",
+    "https://www.360.com",
+    "https://www.taobao.com",
+    "https://www.jd.com",
+    "https://www.tmall.com",
+    "https://www.amazon.com",
+    "https://www.ebay.com",
+    "https://www.aliexpress.com",
+    "https://www.walmart.com",
+    "https://www.costco.com",
+    "https://www.target.com",
+    "https://www.bestbuy.com",
+    "https://www.costco.com",
+    "https://this-domain-does-not-exist-abc123.com"
 ]
 
 router:
@@ -43,9 +60,9 @@ browser:
   viewport_width: 1280
   viewport_height: 720
   # 每批并行标签数：0 表示一批内同时打开全部 URL；>0 则每批最多该数量，批与批之间见 tabs_batch_delay_ms
-  tabs_batch_size: 0
+  tabs_batch_size: 3
   # 上一批全部结束后，延迟多少毫秒再启动下一批（仅当 URL 总数需多批时有效）
-  tabs_batch_delay_ms: 0
+  tabs_batch_delay_ms: 300
   # 单 URL 导航失败（超时、网络、非 2xx 等，不含已判「受限」）时最多尝试次数
   navigation_max_attempts: 3
   # 重试前等待毫秒（再次 goto，重定向由 Playwright 自动跟随）

@@ -13,6 +13,7 @@ from playwright.sync_api import Error as PlaywrightError
 from domain_test.browser_check import UrlCheckResult, run_urls_with_async_browser_sync
 from domain_test.cli_ui import RunUI, use_rich_for_stdout
 from domain_test.config import AppConfig, load_config, read_builtin_config_yaml_text, resolve_output_dir, validate_config
+from domain_test.probe_net import run_probe_summary
 from domain_test.reporting_excel import build_workbook
 from domain_test.router_ssh import change_nat, get_lo_ips
 
@@ -32,8 +33,15 @@ def _prepare_run_directory(cfg: AppConfig) -> tuple[Path, int]:
     return run_dir, run_id
 
 
-def _write_excel_report(cfg: AppConfig, run_dir: Path, run_id: int, rows: list[tuple[str, list[UrlCheckResult]]], urls: list[str]) -> Path:
-    wb = build_workbook(cfg, rows, urls)
+def _write_excel_report(
+    cfg: AppConfig,
+    run_dir: Path,
+    run_id: int,
+    rows: list[tuple[str, list[UrlCheckResult]]],
+    urls: list[str],
+    probe_by_pub_ip: dict[str, str],
+) -> Path:
+    wb = build_workbook(cfg, rows, urls, probe_by_pub_ip)
     xlsx_path = run_dir / f"{cfg.output.excel_prefix}_{run_id}.xlsx"
     wb.save(xlsx_path)
     return xlsx_path
@@ -62,7 +70,10 @@ def run_local_browser_only(cfg: AppConfig, ui: RunUI) -> Path:
     ui.results_table(urls, results, pub_ip)
 
     rows = [(pub_ip, results)]
-    xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls)
+    probe_by: dict[str, str] = {}
+    if cfg.probe.enabled:
+        probe_by[pub_ip] = run_probe_summary(cfg)
+    xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path
 
@@ -79,6 +90,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
     run_dir, run_id = _prepare_run_directory(cfg)
     rows: list[tuple[str, list[UrlCheckResult]]] = []
     urls = cfg.urls
+    probe_by: dict[str, str] = {}
 
     ui.header("domain-test", f"多出口巡检 · {len(ip_list)} 个公网 IP × {len(urls)} 个 URL")
     ui.step(f"运行目录 {run_dir.name}")
@@ -87,6 +99,8 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
         ui.rule(f"出口 {pub_ip}")
         ui.step("SSH 切换 SNAT …")
         change_nat(cfg, pub_ip)
+        if cfg.probe.enabled:
+            probe_by[pub_ip] = run_probe_summary(cfg)
 
         shot_paths = [run_dir / f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png" for idx in range(1, len(urls) + 1)]
         results = ui.browser_phase(
@@ -97,7 +111,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
 
         rows.append((pub_ip, results))
 
-    xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls)
+    xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path
 

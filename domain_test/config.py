@@ -50,6 +50,14 @@ class NatConfig:
 
 
 @dataclass
+class ProbeConfig:
+    """切换 NAT 后、浏览器跑 URL 前，用 urllib 对若干 URL 发 GET，摘要写入 Excel「出口探针」列。"""
+    enabled: bool = False
+    urls: list[str] = field(default_factory=list)
+    timeout_ms: int = 8000
+
+
+@dataclass
 class BrowserConfig:
     """默认使用本机 Google Chrome（Playwright channel 或显式路径），无痕通过启动参数实现。"""
     channel: str = "chrome"
@@ -90,6 +98,13 @@ class BrowserConfig:
     post_goto_load_state_timeout_ms: int = 30_000
     # 导航后再固定等待毫秒，给前端渲染/水合时间，再截正文与截图；0 表示不额外休眠
     post_goto_settle_ms: int = 1500
+    # 以下：HTTP 2xx 且通过关键词检查后，可选「随机冲浪」再截图（仅异步路径）
+    random_surfer_enabled: bool = False
+    random_surfer_budget_ms: int = 12_000
+    random_surfer_max_clicks: int = 3
+    random_surfer_scroll: bool = True
+    random_surfer_scroll_passes: int = 3
+    random_surfer_mouse_wiggle: bool = True
 
 
 @dataclass
@@ -104,6 +119,20 @@ class AccessConfig:
             "not available in your country",
             "地区限制",
             "您所在的地区",
+        ]
+    )
+    # 正文命中则判为「验证墙」类（与封禁区分）；不绕过验证码，仅标记
+    captcha_keywords: list[str] = field(
+        default_factory=lambda: [
+            "slide to verify",
+            "please slide",
+            "unusual traffic",
+            "verify you are human",
+            "captcha",
+            "访问过于频繁",
+            "人机验证",
+            "安全验证",
+            "请完成安全验证",
         ]
     )
 
@@ -127,6 +156,7 @@ class AppConfig:
     browser: BrowserConfig = field(default_factory=BrowserConfig)
     access: AccessConfig = field(default_factory=AccessConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    probe: ProbeConfig = field(default_factory=ProbeConfig)
 
 
 def _parse_urls(raw: Any) -> list[str]:
@@ -186,12 +216,27 @@ def _parse_timezone_id(browser_dict: dict[str, Any]) -> str:
     return str(raw).strip()
 
 
+def _parse_probe_dict(raw: Any) -> ProbeConfig:
+    if not isinstance(raw, dict):
+        return ProbeConfig()
+    urls_raw = raw.get("urls")
+    urls: list[str] = []
+    if isinstance(urls_raw, list):
+        urls = [str(u).strip() for u in urls_raw if str(u).strip()]
+    return ProbeConfig(
+        enabled=bool(raw.get("enabled", False)),
+        urls=urls,
+        timeout_ms=max(500, int(raw.get("timeout_ms", 8000))),
+    )
+
+
 def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     r = d.get("router") or {}
     n = d.get("nat") or {}
     b = d.get("browser") or {}
     a = d.get("access") or {}
     o = d.get("output") or {}
+    pr = d.get("probe") or {}
     ch_raw = b.get("channel", "chrome")
     if ch_raw is None or (isinstance(ch_raw, str) and ch_raw.strip() == ""):
         channel_val = "chrome"
@@ -237,11 +282,22 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             post_goto_try_load_state=bool(b.get("post_goto_try_load_state", True)),
             post_goto_load_state_timeout_ms=max(0, int(b.get("post_goto_load_state_timeout_ms", 30_000))),
             post_goto_settle_ms=max(0, int(b.get("post_goto_settle_ms", 1500))),
+            random_surfer_enabled=bool(b.get("random_surfer_enabled", False)),
+            random_surfer_budget_ms=max(500, int(b.get("random_surfer_budget_ms", 12_000))),
+            random_surfer_max_clicks=max(0, int(b.get("random_surfer_max_clicks", 3))),
+            random_surfer_scroll=bool(b.get("random_surfer_scroll", True)),
+            random_surfer_scroll_passes=max(1, int(b.get("random_surfer_scroll_passes", 3))),
+            random_surfer_mouse_wiggle=bool(b.get("random_surfer_mouse_wiggle", True)),
         ),
         access=AccessConfig(
             enable_body_keyword_check=bool(a.get("enable_body_keyword_check", False)),
             body_text_max_chars=int(a.get("body_text_max_chars", 20_000)),
             block_keywords=list(a.get("block_keywords") or AccessConfig().block_keywords),
+            captcha_keywords=(
+                list(a["captcha_keywords"])
+                if isinstance(a.get("captcha_keywords"), list)
+                else AccessConfig().captcha_keywords
+            ),
         ),
         output=OutputConfig(
             dir=str(out_dir).strip(),
@@ -250,6 +306,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             embed_screenshot_max_height=int(o.get("embed_screenshot_max_height", 180)),
             data_row_height=float(o.get("data_row_height", 24)),
         ),
+        probe=_parse_probe_dict(pr),
     )
 
 

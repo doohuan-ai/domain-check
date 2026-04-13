@@ -24,6 +24,7 @@ from domain_test.browser_launch import (
 )
 from domain_test.chrome_resolve import find_chrome_executable
 from domain_test.config import AppConfig
+from domain_test.random_surfer import post_goto_random_surfer
 
 
 @dataclass
@@ -325,6 +326,21 @@ def check_url_with_page(page, url: str, cfg: AppConfig, screenshot_path: Path | 
             screenshot_path=str(screenshot_path) if screenshot_path else None,
         )
 
+    if 200 <= status_code < 300:
+        cap_sample = _body_text_sample(page, acfg.body_text_max_chars)
+        cap_hit = _match_block_keywords(cap_sample, acfg.captcha_keywords)
+        if cap_hit:
+            _shot_sync(page, screenshot_path)
+            return UrlCheckResult(
+                ok=False,
+                label="challenge",
+                summary=f"疑似人机验证: {cap_hit}",
+                status_code=status_code,
+                final_url=final_url,
+                error_message=None,
+                screenshot_path=str(screenshot_path) if screenshot_path else None,
+            )
+
     if acfg.enable_body_keyword_check:
         sample = _body_text_sample(page, acfg.body_text_max_chars)
         hit = _match_block_keywords(sample, acfg.block_keywords)
@@ -417,6 +433,21 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
             screenshot_path=str(screenshot_path) if screenshot_path else None,
         )
 
+    if 200 <= status_code < 300:
+        cap_sample = await _async_body_text_sample(page, acfg.body_text_max_chars)
+        cap_hit = _match_block_keywords(cap_sample, acfg.captcha_keywords)
+        if cap_hit:
+            await _shot_async(page, screenshot_path)
+            return UrlCheckResult(
+                ok=False,
+                label="challenge",
+                summary=f"疑似人机验证: {cap_hit}",
+                status_code=status_code,
+                final_url=final_url,
+                error_message=None,
+                screenshot_path=str(screenshot_path) if screenshot_path else None,
+            )
+
     if acfg.enable_body_keyword_check:
         sample = await _async_body_text_sample(page, acfg.body_text_max_chars)
         hit = _match_block_keywords(sample, acfg.block_keywords)
@@ -431,6 +462,12 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
                 error_message=None,
                 screenshot_path=str(screenshot_path) if screenshot_path else None,
             )
+
+    if bcfg.random_surfer_enabled:
+        try:
+            await post_goto_random_surfer(page, cfg)
+        except AsyncPlaywrightError:
+            pass
 
     shot: str | None = None
     if bcfg.screenshot_on_success and screenshot_path:
@@ -509,7 +546,7 @@ async def _check_one_url_async(
                 return last
 
             last = await classify_after_goto_async(page, response, cfg, screenshot_path)
-            if last.label in ("success", "blocked"):
+            if last.label in ("success", "blocked", "challenge"):
                 return last
             if attempt < max_att - 1:
                 await asyncio.sleep(retry_delay)
@@ -645,4 +682,6 @@ def format_cell_status(result: UrlCheckResult) -> str:
         return f"正常 | {result.summary} | {result.final_url or ''}"
     if result.label == "blocked":
         return f"受限/拒绝 | {result.summary} | {result.final_url or ''}"
+    if result.label == "challenge":
+        return f"验证墙 | {result.summary} | {result.final_url or ''}"
     return f"失败 | {result.summary} | {result.error_message or ''} | {result.final_url or ''}"
