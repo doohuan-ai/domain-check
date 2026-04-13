@@ -88,6 +88,14 @@ class RunUI:
             return
         self.console.print(Text("› ", style="dt.muted") + Text(message, style="dt.step"))
 
+    def step_warn(self, message: str) -> None:
+        if self.plain:
+            print(f"  [警告] {message}")
+            return
+        self.console.print(
+            Text("! ", style="dt.warn") + Text(message, style="dt.warn"),
+        )
+
     def browser_phase(self, message: str, fn: Callable[[], T]) -> T:
         if self.plain:
             print(f"  {message} …")
@@ -176,6 +184,8 @@ def _status_cell(label: str) -> tuple[str, str]:
         return "受限", "dt.warn"
     if label == "challenge":
         return "验证墙", "dt.warn"
+    if label == "skipped":
+        return "跳过", "dt.warn"
     return "失败", "dt.err"
 
 

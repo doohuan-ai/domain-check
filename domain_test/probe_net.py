@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import urllib.request
+from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 
@@ -19,16 +20,31 @@ def _abbrev(url: str, max_len: int = 36) -> str:
     return f"{host}…"
 
 
-def run_probe_summary(cfg: AppConfig) -> str:
+@dataclass(frozen=True)
+class ProbeSummary:
     """
-    对 ``cfg.probe.urls`` 依次 GET，返回单行摘要（用于 Excel「出口探针」列）。
-    未启用或列表为空时返回空串。
+    探针与浏览器 URL 分离：用 state 标记 urllib 层连通性，detail 为单行摘要。
+    state: off（未启用）/ empty（无 URL）/ ok / partial / fail
+    """
+
+    state: str
+    detail: str
+
+
+def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
+    """
+    对 ``cfg.probe.urls`` 依次 GET；返回结构化摘要（用于 Excel「探针状态」与「出口探针」列）。
     """
     p = cfg.probe
-    if not p.enabled or not p.urls:
-        return ""
+    if not p.enabled:
+        return ProbeSummary("off", "")
+    if not p.urls:
+        return ProbeSummary("empty", "（已启用但未配置 probe.urls）")
+
     timeout_s = max(0.5, p.timeout_ms / 1000.0)
     parts: list[str] = []
+    ok_n = 0
+    fail_n = 0
     for url in p.urls:
         u = url.strip()
         if not u:
@@ -45,13 +61,25 @@ def run_probe_summary(cfg: AppConfig) -> str:
                 _ = resp.read(16384)
             ms = int((time.perf_counter() - t0) * 1000)
             parts.append(f"{_abbrev(u)}→HTTP{status} {ms}ms")
+            ok_n += 1
         except HTTPError as e:
             ms = int((time.perf_counter() - t0) * 1000)
             parts.append(f"{_abbrev(u)}→HTTP{e.code} {ms}ms")
-        except URLError as e:
+            ok_n += 1
+        except URLError:
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"{_abbrev(u)}→URLError {ms}ms ({e.reason!s})")
+            parts.append(f"{_abbrev(u)}→网络/解析失败 {ms}ms")
+            fail_n += 1
         except Exception as e:
             ms = int((time.perf_counter() - t0) * 1000)
             parts.append(f"{_abbrev(u)}→{type(e).__name__} {ms}ms")
-    return " | ".join(parts)
+            fail_n += 1
+
+    detail = " | ".join(parts)
+    if fail_n == 0:
+        state = "ok"
+    elif ok_n == 0:
+        state = "fail"
+    else:
+        state = "partial"
+    return ProbeSummary(state, detail)

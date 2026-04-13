@@ -3,19 +3,34 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+import threading
 import time
 from pathlib import Path
+from typing import Any, Callable
 
 import paramiko
 from playwright.sync_api import Error as PlaywrightError
 
-from domain_test.browser_check import UrlCheckResult, run_urls_with_async_browser_sync
+from domain_test.browser_check import (
+    UrlCheckResult,
+    results_when_nat_skipped,
+    run_urls_with_async_browser_sync,
+)
 from domain_test.cli_ui import RunUI, use_rich_for_stdout
-from domain_test.config import AppConfig, load_config, read_builtin_config_yaml_text, resolve_output_dir, validate_config
-from domain_test.probe_net import run_probe_summary
+from domain_test.config import (
+    AppConfig,
+    load_config,
+    read_builtin_config_yaml_text,
+    resolve_output_dir,
+    validate_config,
+    validate_config_schema,
+)
+from domain_test.probe_net import ProbeSummary, run_probe_summary
 from domain_test.reporting_excel import build_workbook
 from domain_test.router_ssh import change_nat, get_lo_ips
+from domain_test.run_support import ScreenshotBudgetAsync
 
 
 def _safe_file_tag(text: str) -> str:
@@ -39,7 +54,7 @@ def _write_excel_report(
     run_id: int,
     rows: list[tuple[str, list[UrlCheckResult]]],
     urls: list[str],
-    probe_by_pub_ip: dict[str, str],
+    probe_by_pub_ip: dict[str, ProbeSummary],
 ) -> Path:
     wb = build_workbook(cfg, rows, urls, probe_by_pub_ip)
     xlsx_path = run_dir / f"{cfg.output.excel_prefix}_{run_id}.xlsx"
@@ -51,26 +66,63 @@ def _write_excel_report(
 _LOCAL_BROWSER_PUB_LABEL = "本机(无路由器)"
 
 
+def _make_json_event_logger(path: Path | None) -> Callable[[dict[str, Any]], None] | None:
+    if path is None:
+        return None
+    lock = threading.Lock()
+
+    def emit(ev: dict[str, Any]) -> None:
+        line = json.dumps({"ts": time.time(), **ev}, ensure_ascii=False) + "\n"
+        with lock:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+
+    return emit
+
+
 def run_local_browser_only(cfg: AppConfig, ui: RunUI) -> Path:
     """不 SSH、不切 NAT：只对 urls 跑 Playwright，并写与正式流程相同结构的 Excel。"""
+    validate_config_schema(cfg)
     validate_config(cfg, require_router=False)
 
     run_dir, run_id = _prepare_run_directory(cfg)
     urls = cfg.urls
     pub_ip = _LOCAL_BROWSER_PUB_LABEL
 
+    log_path = (run_dir / cfg.logging.json_events_filename) if cfg.logging.json_events_log else None
+    emit = _make_json_event_logger(log_path)
+    budget = (
+        ScreenshotBudgetAsync(cfg.output.max_total_screenshot_bytes)
+        if cfg.output.max_total_screenshot_bytes > 0
+        else None
+    )
+
     ui.header("domain-test", "本机浏览器巡检 · 跳过路由器 / NAT")
     ui.step(f"运行目录 {run_dir.name} · 待测 URL {len(urls)} 个")
+    if emit:
+        ui.step(f"JSON 事件日志: {log_path}")
 
     shot_paths = [run_dir / f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png" for idx in range(1, len(urls) + 1)]
+    run_meta = {"run_id": run_id, "round_index": 1, "pub_ip": pub_ip, "mode": "local_browser"}
+    if emit:
+        emit({"phase": "browser_phase_start", **run_meta, "n_urls": len(urls)})
     results = ui.browser_phase(
         f"Chrome 并行检测 {len(urls)} 个地址",
-        lambda: run_urls_with_async_browser_sync(cfg, urls, shot_paths),
+        lambda: run_urls_with_async_browser_sync(
+            cfg,
+            urls,
+            shot_paths,
+            event_log=emit,
+            screenshot_budget=budget,
+            run_meta=run_meta,
+        ),
     )
+    if emit:
+        emit({"phase": "browser_phase_end", **run_meta})
     ui.results_table(urls, results, pub_ip)
 
     rows = [(pub_ip, results)]
-    probe_by: dict[str, str] = {}
+    probe_by: dict[str, ProbeSummary] = {}
     if cfg.probe.enabled:
         probe_by[pub_ip] = run_probe_summary(cfg)
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
@@ -79,6 +131,7 @@ def run_local_browser_only(cfg: AppConfig, ui: RunUI) -> Path:
 
 
 def run(cfg: AppConfig, ui: RunUI) -> Path:
+    validate_config_schema(cfg)
     validate_config(cfg)
 
     ip_list = get_lo_ips(cfg)
@@ -90,23 +143,70 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
     run_dir, run_id = _prepare_run_directory(cfg)
     rows: list[tuple[str, list[UrlCheckResult]]] = []
     urls = cfg.urls
-    probe_by: dict[str, str] = {}
+    probe_by: dict[str, ProbeSummary] = {}
+
+    log_path = (run_dir / cfg.logging.json_events_filename) if cfg.logging.json_events_log else None
+    emit = _make_json_event_logger(log_path)
+    budget = (
+        ScreenshotBudgetAsync(cfg.output.max_total_screenshot_bytes)
+        if cfg.output.max_total_screenshot_bytes > 0
+        else None
+    )
 
     ui.header("domain-test", f"多出口巡检 · {len(ip_list)} 个公网 IP × {len(urls)} 个 URL")
     ui.step(f"运行目录 {run_dir.name}")
+    if emit:
+        ui.step(f"JSON 事件日志: {log_path}")
 
-    for pub_ip in ip_list:
-        ui.rule(f"出口 {pub_ip}")
+    for round_index, pub_ip in enumerate(ip_list, start=1):
+        ui.rule(f"出口 {pub_ip} (#{round_index}/{len(ip_list)})")
         ui.step("SSH 切换 SNAT …")
-        change_nat(cfg, pub_ip)
+        run_meta = {"run_id": run_id, "round_index": round_index, "pub_ip": pub_ip, "mode": "router"}
+        if emit:
+            emit({"phase": "nat_attempt_start", **run_meta})
+        try:
+            change_nat(cfg, pub_ip)
+        except Exception as e:
+            if emit:
+                emit({"phase": "nat_attempt_failed", **run_meta, "error": str(e), "exc_type": type(e).__name__})
+            if cfg.run.nat_failure_policy == "abort":
+                raise
+            ui.step_warn(f"本出口 NAT/SSH 失败，已跳过浏览器与探针（策略: skip_ip）。{type(e).__name__}: {e}")
+            rows.append((pub_ip, results_when_nat_skipped(urls, e)))
+            probe_by[pub_ip] = ProbeSummary("off", "NAT/SSH 失败，未执行 urllib 探针")
+            continue
+        if emit:
+            emit({"phase": "nat_attempt_ok", **run_meta})
+
         if cfg.probe.enabled:
-            probe_by[pub_ip] = run_probe_summary(cfg)
+            ps = run_probe_summary(cfg)
+            probe_by[pub_ip] = ps
+            if emit:
+                emit(
+                    {
+                        "phase": "probe_done",
+                        **run_meta,
+                        "probe_state": ps.state,
+                        "probe_detail": ps.detail[:500],
+                    }
+                )
 
         shot_paths = [run_dir / f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png" for idx in range(1, len(urls) + 1)]
+        if emit:
+            emit({"phase": "browser_phase_start", **run_meta, "n_urls": len(urls)})
         results = ui.browser_phase(
             f"Chrome 并行检测 {len(urls)} 个地址",
-            lambda: run_urls_with_async_browser_sync(cfg, urls, shot_paths),
+            lambda: run_urls_with_async_browser_sync(
+                cfg,
+                urls,
+                shot_paths,
+                event_log=emit,
+                screenshot_budget=budget,
+                run_meta=run_meta,
+            ),
         )
+        if emit:
+            emit({"phase": "browser_phase_end", **run_meta})
         ui.results_table(urls, results, pub_ip)
 
         rows.append((pub_ip, results))

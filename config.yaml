@@ -63,10 +63,14 @@ browser:
   tabs_batch_size: 3
   # 上一批全部结束后，延迟多少毫秒再启动下一批（仅当 URL 总数需多批时有效）
   tabs_batch_delay_ms: 300
-  # 单 URL 导航失败（超时、网络、非 2xx 等，不含已判「受限」）时最多尝试次数
   navigation_max_attempts: 3
-  # 重试前等待毫秒（再次 goto，重定向由 Playwright 自动跟随）
   navigation_retry_delay_ms: 3000
+  # navigation_network_max_attempts: 3
+  # navigation_network_retry_delay_ms: 3000
+  # navigation_network_retry_backoff: 1.0
+  # navigation_content_max_attempts: 2
+  # navigation_content_retry_delay_ms: 2000
+  # max_concurrent_tabs: 16
   # 同批内各 URL 错开启动导航的间隔（毫秒）；0=同时发起。一批含全部 URL 时建议保留小值防打满站点
   tab_stagger_ms: 150
   # locale: "zh-CN"
@@ -84,9 +88,16 @@ access:
     - "not available in your region"
     - "地区限制"
 
+# run:
+#   nat_failure_policy: skip_ip   # abort | skip_ip
+# logging:
+#   json_events_log: true
+#   json_events_filename: events.jsonl
+
 output:
   dir: "."
   excel_prefix: domain_check
   embed_screenshot_max_width: 300
   embed_screenshot_max_height: 180
   data_row_height: 24
+  # max_total_screenshot_bytes: 100000000

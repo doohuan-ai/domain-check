@@ -11,10 +11,12 @@ from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from domain_test.browser_check import UrlCheckResult, format_cell_status
 from domain_test.config import AppConfig
+from domain_test.probe_net import ProbeSummary
 
 GREEN = PatternFill("solid", fgColor="C6EFCE")
 RED = PatternFill("solid", fgColor="FFC7CE")
 YELLOW = PatternFill("solid", fgColor="FFF2CC")
+SKIP_FILL = PatternFill("solid", fgColor="DEDEDE")
 NEUTRAL_ROW = PatternFill("solid", fgColor="FFF7F7F7")
 
 HEADER_FILL = PatternFill("solid", fgColor="4472C4")
@@ -37,7 +39,20 @@ def _fill_for_result(result: UrlCheckResult) -> PatternFill:
         return GREEN
     if result.label in ("blocked", "challenge"):
         return YELLOW
+    if result.label == "skipped":
+        return SKIP_FILL
     return RED
+
+
+def _probe_state_label(ps: ProbeSummary) -> str:
+    m = {
+        "off": "关闭",
+        "empty": "无 URL",
+        "ok": "正常",
+        "partial": "部分失败",
+        "fail": "失败",
+    }
+    return m.get(ps.state, ps.state)
 
 
 def _px_to_row_height_points(px: float) -> float:
@@ -62,11 +77,11 @@ def build_workbook(
     cfg: AppConfig,
     rows: Sequence[tuple[str, list[UrlCheckResult]]],
     url_headers: list[str],
-    probe_by_pub_ip: Mapping[str, str] | None = None,
+    probe_by_pub_ip: Mapping[str, ProbeSummary] | None = None,
 ) -> Workbook:
     """
     纵向表：每行一条 URL。
-    probe_by_pub_ip: 公网 IP → 探针摘要（可为空映射）；未启用探针时传 None 或空串。
+    probe_by_pub_ip: 公网 IP → 结构化探针结果（urllib 层，与浏览器列分离）；未启用时传 None。
     """
     wb = Workbook()
     ws = wb.active
@@ -80,16 +95,17 @@ def build_workbook(
     tw_disp, th_disp = _screenshot_display_size_px(cfg, target_h)
     shot_col_wch = _chars_for_screenshot_col(tw_disp)
 
-    headers = ["公网IP", "URL", "结果", "出口探针", "截图"]
+    headers = ["公网IP", "URL", "结果", "探针状态", "出口探针详情", "截图"]
     ws.append(headers)
 
     ws.column_dimensions["A"].width = 16
     ws.column_dimensions["B"].width = 50
     ws.column_dimensions["C"].width = 46
-    ws.column_dimensions["D"].width = 38
-    ws.column_dimensions["E"].width = shot_col_wch
+    ws.column_dimensions["D"].width = 14
+    ws.column_dimensions["E"].width = 42
+    ws.column_dimensions["F"].width = shot_col_wch
 
-    for col in range(1, 6):
+    for col in range(1, 7):
         c = ws.cell(row=1, column=col)
         c.fill = HEADER_FILL
         c.font = HEADER_FONT
@@ -100,9 +116,18 @@ def build_workbook(
     probes = probe_by_pub_ip or {}
 
     for pub_ip, results in rows:
-        probe_txt = (probes.get(pub_ip) or "").strip() or "—"
+        ps = probes.get(pub_ip) or ProbeSummary("off", "")
+        probe_state = _probe_state_label(ps)
+        probe_detail = (ps.detail or "").strip() or "—"
+        probe_state_fill = (
+            GREEN
+            if ps.state == "ok"
+            else YELLOW
+            if ps.state in ("partial", "fail", "empty")
+            else NEUTRAL_ROW
+        )
         for url, res in zip(url_headers, results):
-            ws.append([pub_ip, url, format_cell_status(res), probe_txt, ""])
+            ws.append([pub_ip, url, format_cell_status(res), probe_state, probe_detail, ""])
             row_num = ws.max_row
             last_row = row_num
             status_fill = _fill_for_result(res)
@@ -111,8 +136,9 @@ def build_workbook(
                 (1, DATA_ALIGN_LEFT, NEUTRAL_ROW),
                 (2, DATA_ALIGN_LEFT, NEUTRAL_ROW),
                 (3, DATA_ALIGN_LEFT, status_fill),
-                (4, DATA_ALIGN_LEFT, NEUTRAL_ROW),
-                (5, DATA_ALIGN_CENTER, status_fill),
+                (4, DATA_ALIGN_CENTER, probe_state_fill),
+                (5, DATA_ALIGN_LEFT, NEUTRAL_ROW),
+                (6, DATA_ALIGN_CENTER, status_fill),
             ):
                 cell = ws.cell(row=row_num, column=col)
                 cell.fill = fill
@@ -132,8 +158,8 @@ def build_workbook(
                     r0 = row_num - 1
                     img.anchor = TwoCellAnchor(
                         editAs="twoCell",
-                        _from=AnchorMarker(col=4, colOff=0, row=r0, rowOff=0),
-                        to=AnchorMarker(col=4, colOff=0, row=r0, rowOff=0),
+                        _from=AnchorMarker(col=5, colOff=0, row=r0, rowOff=0),
+                        to=AnchorMarker(col=5, colOff=0, row=r0, rowOff=0),
                     )
                     ws.add_image(img)
                 except OSError:
@@ -143,6 +169,6 @@ def build_workbook(
 
     ws.freeze_panes = "A2"
     if last_row >= 1:
-        ws.auto_filter.ref = f"A1:E{last_row}"
+        ws.auto_filter.ref = f"A1:F{last_row}"
 
     return wb

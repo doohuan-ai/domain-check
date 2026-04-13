@@ -50,6 +50,22 @@ class NatConfig:
 
 
 @dataclass
+class RunConfig:
+    """路由器 / NAT 失败时与浏览器巡检的解耦策略。"""
+
+    # abort：任一出错 IP 上 SSH/NAT 失败则终止整轮；skip_ip：跳过该出口，Excel 写占位行（浏览器未跑）
+    nat_failure_policy: str = "skip_ip"
+
+
+@dataclass
+class LoggingConfig:
+    """可观测性：JSON 行日志（与 Excel 同一运行目录）。"""
+
+    json_events_log: bool = False
+    json_events_filename: str = "events.jsonl"
+
+
+@dataclass
 class ProbeConfig:
     """切换 NAT 后、浏览器跑 URL 前，用 urllib 对若干 URL 发 GET，摘要写入 Excel「出口探针」列。"""
     enabled: bool = False
@@ -74,10 +90,18 @@ class BrowserConfig:
     tabs_batch_size: int = 0
     # 相邻两批之间等待毫秒（上一批全部加载结束后，再开下一批）
     tabs_batch_delay_ms: int = 0
-    # 单次导航（含超时/网络/5xx 等可重试失败）最大尝试次数
+    # 兼容旧键：未单独配置 network_* 时，回退到 navigation_max_attempts / navigation_retry_delay_ms
     navigation_max_attempts: int = 3
-    # 重试前等待毫秒（再次 goto 或刷新）
     navigation_retry_delay_ms: int = 3000
+    # 网络类（goto 超时、连接重置等）最大尝试次数与退避
+    navigation_network_max_attempts: int = 3
+    navigation_network_retry_delay_ms: int = 3000
+    navigation_network_retry_backoff: float = 1.0
+    # 内容类（已拿到文档但 HTTP 非成功等需再次 goto）最大尝试次数与退避（验证墙/关键词命中不重试）
+    navigation_content_max_attempts: int = 1
+    navigation_content_retry_delay_ms: int = 2000
+    # 与 tabs_batch_size=0 配合：单批最多并发页签上限（0 表示不额外限制；建议大 URL 列表时设为 8–32）
+    max_concurrent_tabs: int = 0
     # 同一批内各 URL 启动导航的错开间隔（毫秒）；0 表示同时发起。tabs_batch_size 为 0 时仍生效，用于缓和打满目标站
     tab_stagger_ms: int = 150
     # 参考 aips-desktop：去掉默认 automation 开关并追加轻量反检测启动参数（不含 --disable-web-security）
@@ -145,6 +169,8 @@ class OutputConfig:
     embed_screenshot_max_width: int = 300
     embed_screenshot_max_height: int = 180
     data_row_height: float = 24.0
+    # 单次运行截图文件总字节上限（超过则跳过后续截图）；0 表示不限制
+    max_total_screenshot_bytes: int = 100_000_000
 
 
 @dataclass
@@ -153,6 +179,8 @@ class AppConfig:
     urls: list[str] = field(default_factory=list)
     router: RouterConfig = field(default_factory=RouterConfig)
     nat: NatConfig = field(default_factory=NatConfig)
+    run: RunConfig = field(default_factory=RunConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
     browser: BrowserConfig = field(default_factory=BrowserConfig)
     access: AccessConfig = field(default_factory=AccessConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
@@ -233,6 +261,8 @@ def _parse_probe_dict(raw: Any) -> ProbeConfig:
 def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     r = d.get("router") or {}
     n = d.get("nat") or {}
+    run_d = d.get("run") or {}
+    log_d = d.get("logging") or {}
     b = d.get("browser") or {}
     a = d.get("access") or {}
     o = d.get("output") or {}
@@ -245,6 +275,16 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     out_dir = o.get("dir", ".")
     if not isinstance(out_dir, str) or not str(out_dir).strip():
         out_dir = "."
+    legacy_nav = max(1, int(b.get("navigation_max_attempts", 3)))
+    legacy_delay = max(0, int(b.get("navigation_retry_delay_ms", 3000)))
+    net_max = max(1, int(b.get("navigation_network_max_attempts", legacy_nav)))
+    net_delay = max(0, int(b.get("navigation_network_retry_delay_ms", legacy_delay)))
+    net_backoff = float(b.get("navigation_network_retry_backoff", 1.0))
+    cont_max = max(1, int(b.get("navigation_content_max_attempts", 1)))
+    cont_delay = max(0, int(b.get("navigation_content_retry_delay_ms", 2000)))
+    max_ct = int(b.get("max_concurrent_tabs", 0))
+    nat_policy = str(run_d.get("nat_failure_policy", "skip_ip")).strip().lower()
+    log_fn = str(log_d.get("json_events_filename", "events.jsonl")).strip() or "events.jsonl"
     return AppConfig(
         urls=_parse_urls(d.get("urls")),
         router=RouterConfig(
@@ -257,6 +297,11 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             nat_settle_seconds=float(r.get("nat_settle_seconds", 8)),
         ),
         nat=NatConfig(target_src=str(n.get("target_src", ""))),
+        run=RunConfig(nat_failure_policy=nat_policy),
+        logging=LoggingConfig(
+            json_events_log=bool(log_d.get("json_events_log", False)),
+            json_events_filename=log_fn,
+        ),
         browser=BrowserConfig(
             channel=channel_val,
             chrome_path=_parse_chrome_path(b),
@@ -270,8 +315,14 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             user_agent=_parse_user_agent(b),
             tabs_batch_size=int(b.get("tabs_batch_size", 0)),
             tabs_batch_delay_ms=int(b.get("tabs_batch_delay_ms", 0)),
-            navigation_max_attempts=max(1, int(b.get("navigation_max_attempts", 3))),
-            navigation_retry_delay_ms=max(0, int(b.get("navigation_retry_delay_ms", 3000))),
+            navigation_max_attempts=legacy_nav,
+            navigation_retry_delay_ms=legacy_delay,
+            navigation_network_max_attempts=net_max,
+            navigation_network_retry_delay_ms=net_delay,
+            navigation_network_retry_backoff=net_backoff,
+            navigation_content_max_attempts=cont_max,
+            navigation_content_retry_delay_ms=cont_delay,
+            max_concurrent_tabs=max(0, max_ct),
             tab_stagger_ms=max(0, int(b.get("tab_stagger_ms", 150))),
             use_stealth_launch_args=bool(b.get("use_stealth_launch_args", True)),
             disable_chrome_extensions=bool(b.get("disable_chrome_extensions", True)),
@@ -305,6 +356,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             embed_screenshot_max_width=int(o.get("embed_screenshot_max_width", 300)),
             embed_screenshot_max_height=int(o.get("embed_screenshot_max_height", 180)),
             data_row_height=float(o.get("data_row_height", 24)),
+            max_total_screenshot_bytes=max(0, int(o.get("max_total_screenshot_bytes", 100_000_000))),
         ),
         probe=_parse_probe_dict(pr),
     )
@@ -334,6 +386,74 @@ def resolve_output_dir(cfg: AppConfig) -> Path:
     if not path.is_absolute():
         path = Path.cwd() / path
     return path
+
+
+_WAIT_UNTIL_ALLOWED = frozenset({"load", "domcontentloaded", "networkidle", "commit"})
+
+
+def validate_config_schema(cfg: AppConfig) -> None:
+    """启动前校验：白名单、范围、路径等；失败抛出 ``ValueError``（可读中文信息）。"""
+    errs: list[str] = []
+    wu = (cfg.browser.wait_until or "").strip().lower()
+    if wu not in _WAIT_UNTIL_ALLOWED:
+        errs.append(
+            "browser.wait_until 必须是 "
+            + ", ".join(sorted(_WAIT_UNTIL_ALLOWED))
+            + f"；当前: {cfg.browser.wait_until!r}"
+        )
+    if not (1 <= cfg.router.port <= 65535):
+        errs.append(f"router.port 须在 1–65535；当前: {cfg.router.port}")
+    gt = cfg.browser.goto_timeout_ms
+    if not (1_000 <= gt <= 600_000):
+        errs.append(f"browser.goto_timeout_ms 建议在 1000–600000；当前: {gt}")
+    vw, vh = cfg.browser.viewport_width, cfg.browser.viewport_height
+    if not (16 <= vw <= 7680 and 16 <= vh <= 4320):
+        errs.append(f"browser 视口宽高异常: {vw}×{vh}（建议 16–7680 × 16–4320）")
+    tbs = cfg.browser.tabs_batch_size
+    if not (0 <= tbs <= 500):
+        errs.append(f"browser.tabs_batch_size 须在 0–500；当前: {tbs}")
+    mct = cfg.browser.max_concurrent_tabs
+    if not (0 <= mct <= 200):
+        errs.append(f"browser.max_concurrent_tabs 须在 0–200；当前: {mct}")
+    nn = cfg.browser.navigation_network_max_attempts
+    nc = cfg.browser.navigation_content_max_attempts
+    if not (1 <= nn <= 30):
+        errs.append(f"browser.navigation_network_max_attempts 须在 1–30；当前: {nn}")
+    if not (1 <= nc <= 20):
+        errs.append(f"browser.navigation_content_max_attempts 须在 1–20；当前: {nc}")
+    if cfg.browser.navigation_network_retry_delay_ms < 0 or cfg.browser.navigation_network_retry_delay_ms > 600_000:
+        errs.append("browser.navigation_network_retry_delay_ms 须在 0–600000")
+    if cfg.browser.navigation_content_retry_delay_ms < 0 or cfg.browser.navigation_content_retry_delay_ms > 600_000:
+        errs.append("browser.navigation_content_retry_delay_ms 须在 0–600000")
+    bo = cfg.browser.navigation_network_retry_backoff
+    if not (1.0 <= bo <= 3.0):
+        errs.append(f"browser.navigation_network_retry_backoff 须在 1.0–3.0；当前: {bo}")
+    o = cfg.output
+    if o.embed_screenshot_max_width < 1 or o.embed_screenshot_max_width > 4000:
+        errs.append(f"output.embed_screenshot_max_width 异常: {o.embed_screenshot_max_width}")
+    if o.embed_screenshot_max_height < 1 or o.embed_screenshot_max_height > 4000:
+        errs.append(f"output.embed_screenshot_max_height 异常: {o.embed_screenshot_max_height}")
+    if o.max_total_screenshot_bytes < 0:
+        errs.append("output.max_total_screenshot_bytes 不能为负")
+    ac = cfg.access.body_text_max_chars
+    if not (100 <= ac <= 2_000_000):
+        errs.append(f"access.body_text_max_chars 建议在 100–2000000；当前: {ac}")
+    pol = (cfg.run.nat_failure_policy or "").strip().lower()
+    if pol not in ("abort", "skip_ip"):
+        errs.append("run.nat_failure_policy 必须是 abort 或 skip_ip")
+    cp = cfg.browser.chrome_path
+    if cp and str(cp).strip():
+        pth = Path(str(cp).strip()).expanduser()
+        if not pth.is_file():
+            errs.append(f"browser.chrome_path 不是有效文件: {pth}")
+    if cfg.probe.enabled and not cfg.probe.urls:
+        errs.append("probe.enabled 为 true 时请在 probe.urls 中至少配置一个 URL")
+    if len(cfg.urls) > 500:
+        errs.append(f"urls 数量过多（>500），当前 {len(cfg.urls)}，请分批运行")
+    if cfg.probe.enabled and len(cfg.probe.urls) > 40:
+        errs.append(f"probe.urls 过多（>40），当前 {len(cfg.probe.urls)}")
+    if errs:
+        raise ValueError("配置校验未通过:\n- " + "\n- ".join(errs))
 
 
 def validate_config(cfg: AppConfig, *, require_router: bool = True) -> None:

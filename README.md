@@ -13,7 +13,7 @@
 
 ## 环境
 
-Python **3.10+**，本机 **Google Chrome**，能 **SSH** 到路由器；**不必**执行 `playwright install chromium`。
+Python **3.10+**，本机已安装 **Google Chrome**（[官网](https://www.google.com/chrome/)），能 **SSH** 到路由器。本程序只驱动本机 Chrome，**不要**执行 `playwright install` 去下载 Playwright 自带的浏览器包。
 
 ## 安装
 
@@ -56,18 +56,20 @@ urls:
 
 - **单次运行只启动一次浏览器**（每个出口 IP 一轮）：在 **一个 BrowserContext** 内用 **异步 Playwright** 按批并行打开多个 **Page**（多标签），不再每 URL 开关浏览器。
 - **`browser.tabs_batch_size`**：**0** 表示一批内同时跑完全部 URL；设为 **5** 等则每批最多 5 个并行，批与批之间间隔 **`browser.tabs_batch_delay_ms`**。
+- **`browser.max_concurrent_tabs`**：与上项配合；当 **`tabs_batch_size: 0`** 且 URL 很多时，用本值限制**单批**最多并发页签（**0** 表示不额外限制）。建议 **8–32**，减轻内存与磁盘峰值。
 - **`browser.tab_stagger_ms`**：同一批内，第 *k* 个 URL 会比第 0 个晚 *k*×该毫秒数再开始 **`goto`**（包括 `tabs_batch_size: 0` 时），用于缓和瞬时并发；设为 **0** 则同批内同时发起导航。
-- **重试**：单 URL 导航失败（超时、网络错误、HTTP 非成功且非「受限」）时，间隔 **`browser.navigation_retry_delay_ms`** 后再次 **`goto`**（含重定向链），最多 **`browser.navigation_max_attempts`** 次；**403/451/正文关键词受限**不重试。
+- **重试（分层）**：**网络类**（`goto` 超时、连接类错误）使用 **`navigation_network_max_attempts`**、**`navigation_network_retry_delay_ms`**、**`navigation_network_retry_backoff`**（指数因子，**1.0** 为固定间隔）；**内容类**（已返回文档但 HTTP 非成功等需再次 `goto`）使用 **`navigation_content_max_attempts`** 与 **`navigation_content_retry_delay_ms`**。**403/451/验证墙/正文关键词**不重试。未写 **`navigation_network_*`** 时回退旧键 **`navigation_max_attempts` / `navigation_retry_delay_ms`**。
+- **截图总预算**：**`output.max_total_screenshot_bytes`**（默认约 **100MB**，**0** 不限制）；超出后仍完成检测，但**不再写入**后续截图。
 - **截图**：均为 **视口**（可见区域），非整页长图。
 - **渲染等待**：**`post_goto_try_load_state`**（默认再等 **`load`**）+ **`post_goto_settle_ms`**（默认约 **1.5s**）在导航返回后、正文检测与截图前执行，减轻 SPA 只出现加载动画就关页的问题；仍不够时可加大 settle 或把 **`wait_until`** 设为 **`load`** / **`networkidle`**（后者易因长连接卡住，慎用）。
 - **参考本地项目 aips-desktop（Electron + playwright-extra + stealth）的思路**（实现见 **`domain_test/browser_launch.py`**）：可选去掉默认 **`--enable-automation`**、追加 **`AutomationControlled`** 相关启动参数；可选 **`locale` / `timezone_id`**（与 aips 默认 **zh-CN / Asia/Shanghai** 类似时可配置）；可选注入 **清理 WebDriver/Selenium 遗留 `window` 属性** 的脚本。**未**引入 Node 的 `playwright-extra`、**未**做 Canvas 指纹噪声（避免误伤通用巡检）。可用 **`browser.use_stealth_launch_args`**、**`inject_automation_cleanup_script`** 等关闭。
 
 ### Excel 版式
 
-- **纵向**：每个待测 URL **一行**，列为 **`公网IP` / `URL` / `结果` / `出口探针` / `截图`**（同一公网 IP 会重复多行）。
+- **纵向**：每个待测 URL **一行**，列为 **`公网IP` / `URL` / `结果` / `探针状态` / `出口探针详情` / `截图`**（同一公网 IP 会重复多行）。**浏览器结果**与 **urllib 探针**分列，避免把「出口网络不通」与「站点本身失败」混在同一语义里。
 - **表头**：深蓝底白字、居中、底边加粗；**冻结首行**；**自动筛选**。
-- **配色**：**`结果`** 与 **`截图`** 列同底色（正常绿 / 受限与验证墙黄 / 失败红）；**`公网IP`/`URL`/`出口探针`** 为浅灰底。
-- **对齐**：**`公网IP`/`URL`/`结果`/`出口探针`** 文字**垂直居中**（URL/结果可换行）；截图列居中。
+- **配色**：**`结果`** 与 **`截图`** 列同底色（正常绿 / 受限与验证墙黄 / 失败红 / **跳过**灰）；**`探针状态`** 单独着色（探针全成功绿、部分失败/失败黄、关闭灰）；**`公网IP`/`URL`/`出口探针详情`** 为浅灰底。
+- **对齐**：文字列**垂直居中**（URL/结果可换行）；**`探针状态`** 居中；截图列居中。
 - **截图**：显示尺寸按 **视口宽高 × `embed_screenshot_max_height`** 固定，**`截图` 列宽**与之匹配；嵌入使用 **`twoCell` 锚点（随单元格移动/隐藏）**，减轻筛选隐藏行后图片仍浮在表上的叠图问题（Excel 对浮动图仍有局限，极端情况可关筛选或拆表）。
 - **边框**：全表细线网格。
 - 无截图行：**`output.data_row_height`**（磅）。
@@ -79,13 +81,20 @@ urls:
 
 ### 出口探针（可选）
 
-- 配置顶层 **`probe`**：`enabled: true` 与 **`urls`** 列表；在 **每次 `change_nat` 之后、开浏览器测 URL 之前**，由本机 **`urllib`** 发 GET，摘要写入 Excel **「出口探针」**列（同一公网 IP 多行重复同一段摘要）。**无需另建服务**；与浏览器共用当前 PC 的出口路径。
+- 配置顶层 **`probe`**：`enabled: true` 与 **`urls`** 列表；在 **每次 `change_nat` 成功之后、开浏览器之前**，由本机 **`urllib`** 发 GET；**`探针状态`** 为 **正常 / 部分失败 / 失败** 等，**`出口探针详情`** 为单行摘要。若 **SSH/NAT 失败** 且策略为 **`run.nat_failure_policy: skip_ip`**，则该出口不写探针摘要（详见下节）。
+
+### 路由器失败与可观测性
+
+- **`run.nat_failure_policy`**：**`skip_ip`**（默认）时，某一出口 **SSH/NAT 切换失败**会跳过本出口浏览器与探针，仍在 Excel 为每个 URL 写入 **`已跳过（未测浏览器）`** 占位行，避免半份表被误读成「站点全挂」。**`abort`** 时则在首次失败处终止整轮。
+- **`logging.json_events_log: true`**：在每次运行的 **`<excel_prefix>_<时间戳>/`** 目录下追加 **`json_events_filename`**（默认 **`events.jsonl`**），每行一条 JSON，含 **`run_id` / `round_index` / `pub_ip` / `url` / `phase`** 等，便于与 Excel 对照。
+- 启动前会做 **`validate_config_schema`**（**`wait_until`** 白名单、端口、超时、并发、探针与 Chrome 路径等）；与 **`validate_config`**（必填项）互补。
 
 ## 输出与判定（简要）
 
 - **成功**：主文档 **HTTP 2xx**。
 - **受限**：**403 / 451**；或开启 **`access.enable_body_keyword_check`** 且正文命中 **`access.block_keywords`**。
 - **失败**：超时、网络/TLS 错误、其它 **4xx/5xx**。
+- **跳过**：**NAT/SSH 失败**且策略为 **`skip_ip`** 时，该 URL 未启动浏览器（与失败区分）。
 
 ## 日常开发与发版
 
@@ -126,7 +135,7 @@ twine upload dist/*
 
 ## 常见问题
 
-- **配置校验失败**：**`--config`** 是否含 **`urls`**（至少一条）、**`router.host` / `user` / `password`**、**`nat.target_src`**。
+- **配置校验失败**：先看终端中文列表（**`validate_config_schema`**：如非法 **`wait_until`**、端口、**`browser.chrome_path`** 等）；必填项：**`urls`**、**`router.host` / `user` / `password`**、**`nat.target_src`**（**`--local-browser`** 时仅 **`urls`**）。
 - **SSH / NAT 失败**：账号密码、防火墙、**`router.ssh_encoding`**。
 - **Chrome 无法启动**：安装 Chrome，或在 **`--config`** 中设 **`browser.chrome_path`**。
 - **PyPI 上传失败**：版本是否已存在、token 是否正确、是否先 **`twine check`**。

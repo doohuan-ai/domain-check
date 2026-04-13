@@ -27,6 +27,16 @@ nat:
   # 做 SNAT 的内网源 IP（--config 必填）
   target_src: ""
 
+# 编排策略：与浏览器检测解耦
+run:
+  # SSH/NAT 失败时：abort 终止整轮；skip_ip 跳过该出口并在 Excel 写「已跳过」占位行（不启动浏览器）
+  nat_failure_policy: skip_ip
+
+# 可观测性：与 Excel 同目录追加 JSON 行（每行一条事件，便于对照）
+logging:
+  json_events_log: false
+  json_events_filename: events.jsonl
+
 browser:
   # 本机 Chrome
   channel: chrome
@@ -48,12 +58,20 @@ browser:
   viewport_height: 720
   # 每批并行标签数：0 表示一批内同时打开全部 URL；>0 则每批最多该数量，批与批之间见 tabs_batch_delay_ms
   tabs_batch_size: 0
+  # tabs_batch_size 为 0 时：单批最多并发页签（0 表示不限制；大列表建议 8–32 防内存/磁盘尖峰）
+  max_concurrent_tabs: 0
   # 上一批全部结束后，延迟多少毫秒再启动下一批（仅当 URL 总数需多批时有效）
   tabs_batch_delay_ms: 0
-  # 单 URL 导航失败（超时、网络、非 2xx 等，不含已判「受限」）时最多尝试次数
+  # 兼容旧键：未单独写 navigation_network_* 时，回退到下列两项
   navigation_max_attempts: 3
-  # 重试前等待毫秒（再次 goto，重定向由 Playwright 自动跟随）
   navigation_retry_delay_ms: 3000
+  # 网络类（goto 超时、连接错误等）最大尝试次数与退避（指数因子，1.0=固定间隔）
+  navigation_network_max_attempts: 3
+  navigation_network_retry_delay_ms: 3000
+  navigation_network_retry_backoff: 1.0
+  # 内容类（已返回文档但 HTTP 非成功等，再次 goto）；验证墙/关键词命中不重试
+  navigation_content_max_attempts: 1
+  navigation_content_retry_delay_ms: 2000
   # 同一批内：第 k 个 URL 比第 0 个晚 k×本值（毫秒）再开始 goto；tabs_batch_size 为 0 时仍生效，避免瞬间打满目标站。0 表示不错开
   tab_stagger_ms: 150
   # 参考 aips-desktop BrowserManager：去掉 --enable-automation 并追加轻量反自动化参数（非 Node stealth 插件）
@@ -104,7 +122,7 @@ access:
     - "人机验证"
     - "安全验证"
 
-# 切换 NAT 后、开浏览器前：用 urllib 探测若干 URL，摘要写入 Excel「出口探针」列（与本项目一体，无需另建服务）
+# 切换 NAT 后、开浏览器前：urllib 探针（与下方浏览器测的 urls 分离）；Excel「探针状态」「出口探针详情」列
 probe:
   enabled: false
   timeout_ms: 8000
@@ -123,3 +141,5 @@ output:
   embed_screenshot_max_height: 180
   # 无截图时的数据行高（Excel 磅）
   data_row_height: 24
+  # 单次运行截图文件总字节上限（超出则跳过后续截图，仍完成 URL 检测）；0 不限制
+  max_total_screenshot_bytes: 100000000

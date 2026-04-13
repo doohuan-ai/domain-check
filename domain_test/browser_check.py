@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import time
 from contextlib import contextmanager
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 from playwright.async_api import Error as AsyncPlaywrightError
 from playwright.async_api import TimeoutError as AsyncPlaywrightTimeoutError
@@ -19,12 +20,31 @@ from playwright.sync_api import sync_playwright
 
 from domain_test.browser_launch import (
     automation_cleanup_init_script,
-    build_chromium_launch_kwargs,
     build_context_options,
+    launch_google_chrome_async,
+    launch_google_chrome_sync,
 )
-from domain_test.chrome_resolve import find_chrome_executable
 from domain_test.config import AppConfig
 from domain_test.random_surfer import post_goto_random_surfer
+from domain_test.run_support import ScreenshotBudgetAsync
+
+
+def results_when_nat_skipped(urls: list[str], exc: BaseException) -> list[UrlCheckResult]:
+    """路由器 SSH/NAT 失败且策略为跳过本出口时，为每个 URL 写入占位结果（未启动浏览器）。"""
+    detail = f"{type(exc).__name__}: {exc}"
+    summary = "SSH/NAT 切换失败，未测此 URL（浏览器未启动）"
+    return [
+        UrlCheckResult(
+            ok=False,
+            label="skipped",
+            summary=summary,
+            status_code=None,
+            final_url=None,
+            error_message=detail,
+            screenshot_path=None,
+        )
+        for _ in urls
+    ]
 
 
 @dataclass
@@ -48,12 +68,6 @@ def _normalize_wait_until(raw: str) -> str:
     return w
 
 
-_CHROME_INSTALL_HINT = (
-    "请先安装 Google Chrome（官方下载：https://www.google.com/chrome/ ）。\n"
-    "若已安装但仍失败，请在 --config 指定的 YAML 里设置 browser.chrome_path 为可执行文件绝对路径。"
-)
-
-
 def _apply_context_init_scripts_sync(context, cfg: AppConfig) -> None:
     if cfg.browser.inject_automation_cleanup_script:
         context.add_init_script(automation_cleanup_init_script())
@@ -62,93 +76,6 @@ def _apply_context_init_scripts_sync(context, cfg: AppConfig) -> None:
 async def _apply_context_init_scripts_async(context, cfg: AppConfig) -> None:
     if cfg.browser.inject_automation_cleanup_script:
         await context.add_init_script(automation_cleanup_init_script())
-
-
-def _launch_browser(p, cfg: AppConfig):
-    """使用本机 Google Chrome：优先 browser.chrome_path，否则 channel=chrome，再否则探测常见安装路径。"""
-    common = build_chromium_launch_kwargs(cfg)
-
-    if cfg.browser.chrome_path:
-        exe = Path(cfg.browser.chrome_path).expanduser()
-        if not exe.is_file():
-            raise FileNotFoundError(f"browser.chrome_path 不是有效文件: {exe}")
-        try:
-            return p.chromium.launch(**common, executable_path=str(exe))
-        except PlaywrightError as e:
-            raise RuntimeError(
-                f"无法启动 Google Chrome（已指定 browser.chrome_path={exe}）。\n"
-                f"{_CHROME_INSTALL_HINT}\n底层错误: {e}"
-            ) from e
-
-    first_err: PlaywrightError | None = None
-    ch = cfg.browser.channel
-    if ch:
-        try:
-            return p.chromium.launch(**common, channel=ch)
-        except PlaywrightError as e:
-            first_err = e
-
-    found = find_chrome_executable()
-    if found is not None:
-        try:
-            return p.chromium.launch(**common, executable_path=str(found))
-        except PlaywrightError as e:
-            raise RuntimeError(
-                f"无法启动 Google Chrome（已探测到可执行文件：{found}）。\n"
-                f"{_CHROME_INSTALL_HINT}\n底层错误: {e}"
-            ) from e
-
-    ex = RuntimeError(
-        "未在本机检测到可用的 Google Chrome，且通过 Playwright channel 也无法启动。\n"
-        f"{_CHROME_INSTALL_HINT}"
-        + (f"\n首次尝试错误: {first_err}" if first_err else "")
-    )
-    if first_err is not None:
-        raise ex from first_err
-    raise ex
-
-
-async def _launch_browser_async(p, cfg: AppConfig):
-    common = build_chromium_launch_kwargs(cfg)
-
-    if cfg.browser.chrome_path:
-        exe = Path(cfg.browser.chrome_path).expanduser()
-        if not exe.is_file():
-            raise FileNotFoundError(f"browser.chrome_path 不是有效文件: {exe}")
-        try:
-            return await p.chromium.launch(**common, executable_path=str(exe))
-        except AsyncPlaywrightError as e:
-            raise RuntimeError(
-                f"无法启动 Google Chrome（已指定 browser.chrome_path={exe}）。\n"
-                f"{_CHROME_INSTALL_HINT}\n底层错误: {e}"
-            ) from e
-
-    first_err: AsyncPlaywrightError | None = None
-    ch = cfg.browser.channel
-    if ch:
-        try:
-            return await p.chromium.launch(**common, channel=ch)
-        except AsyncPlaywrightError as e:
-            first_err = e
-
-    found = find_chrome_executable()
-    if found is not None:
-        try:
-            return await p.chromium.launch(**common, executable_path=str(found))
-        except AsyncPlaywrightError as e:
-            raise RuntimeError(
-                f"无法启动 Google Chrome（已探测到可执行文件：{found}）。\n"
-                f"{_CHROME_INSTALL_HINT}\n底层错误: {e}"
-            ) from e
-
-    ex = RuntimeError(
-        "未在本机检测到可用的 Google Chrome，且通过 Playwright channel 也无法启动。\n"
-        f"{_CHROME_INSTALL_HINT}"
-        + (f"\n首次尝试错误: {first_err}" if first_err else "")
-    )
-    if first_err is not None:
-        raise ex from first_err
-    raise ex
 
 
 def _new_context(browser, cfg: AppConfig):
@@ -200,11 +127,20 @@ def _shot_sync(page, path: Path | None) -> None:
         pass
 
 
-async def _shot_async(page, path: Path | None) -> None:
+async def _shot_async(
+    page,
+    path: Path | None,
+    *,
+    screenshot_budget: ScreenshotBudgetAsync | None = None,
+) -> None:
     if not path:
+        return
+    if screenshot_budget is not None and not await screenshot_budget.allow_shot():
         return
     try:
         await page.screenshot(path=str(path), full_page=False)
+        if screenshot_budget is not None:
+            await screenshot_budget.record_file(path)
     except AsyncPlaywrightError:
         pass
 
@@ -375,7 +311,14 @@ def check_url_with_page(page, url: str, cfg: AppConfig, screenshot_path: Path | 
     )
 
 
-async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_path: Path | None) -> UrlCheckResult:
+async def classify_after_goto_async(
+    page,
+    response,
+    cfg: AppConfig,
+    screenshot_path: Path | None,
+    *,
+    screenshot_budget: ScreenshotBudgetAsync | None = None,
+) -> UrlCheckResult:
     """goto 已成功返回 response 后的分类（含重定向后的 final URL 与最终文档 HTTP 状态）。"""
     await _async_post_goto_settle(page, cfg)
 
@@ -386,7 +329,7 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
 
     if status_code is None:
         summary = "无 HTTP 响应（可能是非文档导航）"
-        await _shot_async(page, screenshot_path)
+        await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
         return UrlCheckResult(
             ok=False,
             label="error",
@@ -398,7 +341,7 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
         )
 
     if status_code == 403 or status_code == 451:
-        await _shot_async(page, screenshot_path)
+        await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
         return UrlCheckResult(
             ok=False,
             label="blocked",
@@ -410,7 +353,7 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
         )
 
     if status_code >= 400:
-        await _shot_async(page, screenshot_path)
+        await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
         return UrlCheckResult(
             ok=False,
             label="error",
@@ -422,7 +365,7 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
         )
 
     if status_code < 200 or status_code >= 300:
-        await _shot_async(page, screenshot_path)
+        await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
         return UrlCheckResult(
             ok=False,
             label="error",
@@ -437,7 +380,7 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
         cap_sample = await _async_body_text_sample(page, acfg.body_text_max_chars)
         cap_hit = _match_block_keywords(cap_sample, acfg.captcha_keywords)
         if cap_hit:
-            await _shot_async(page, screenshot_path)
+            await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
             return UrlCheckResult(
                 ok=False,
                 label="challenge",
@@ -452,7 +395,7 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
         sample = await _async_body_text_sample(page, acfg.body_text_max_chars)
         hit = _match_block_keywords(sample, acfg.block_keywords)
         if hit:
-            await _shot_async(page, screenshot_path)
+            await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
             return UrlCheckResult(
                 ok=False,
                 label="blocked",
@@ -471,11 +414,14 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
 
     shot: str | None = None
     if bcfg.screenshot_on_success and screenshot_path:
-        try:
-            await page.screenshot(path=str(screenshot_path), full_page=False)
-            shot = str(screenshot_path)
-        except AsyncPlaywrightError:
-            shot = None
+        if screenshot_budget is None or await screenshot_budget.allow_shot():
+            try:
+                await page.screenshot(path=str(screenshot_path), full_page=False)
+                shot = str(screenshot_path)
+                if screenshot_budget is not None:
+                    await screenshot_budget.record_file(screenshot_path)
+            except AsyncPlaywrightError:
+                shot = None
 
     return UrlCheckResult(
         ok=True,
@@ -488,6 +434,20 @@ async def classify_after_goto_async(page, response, cfg: AppConfig, screenshot_p
     )
 
 
+def _emit_browser_event(
+    event_log: Callable[[dict[str, Any]], None] | None,
+    run_meta: dict[str, Any] | None,
+    url: str,
+    url_index: int,
+    payload: dict[str, Any],
+) -> None:
+    if not event_log:
+        return
+    base: dict[str, Any] = {**(run_meta or {}), "url": url, "url_index": url_index}
+    base.update(payload)
+    event_log(base)
+
+
 async def _check_one_url_async(
     context,
     url: str,
@@ -495,64 +455,171 @@ async def _check_one_url_async(
     screenshot_path: Path | None,
     *,
     initial_delay_s: float = 0.0,
+    url_index: int = 0,
+    event_log: Callable[[dict[str, Any]], None] | None = None,
+    screenshot_budget: ScreenshotBudgetAsync | None = None,
+    run_meta: dict[str, Any] | None = None,
 ) -> UrlCheckResult:
-    """单 URL：独立 Page，带导航重试（成功/受限即停止；错误类可重试至次数用尽）。"""
-    if initial_delay_s > 0:
-        await asyncio.sleep(initial_delay_s)
-
+    """单 URL：网络类与内容类重试分层；成功 / 验证墙 / 关键词命中即停止。"""
     bcfg = cfg.browser
     wait_until = _normalize_wait_until(bcfg.wait_until)
     timeout = bcfg.goto_timeout_ms
-    max_att = bcfg.navigation_max_attempts
-    retry_delay = bcfg.navigation_retry_delay_ms / 1000.0
+    net_max = bcfg.navigation_network_max_attempts
+    cont_max = bcfg.navigation_content_max_attempts
+    net_delay_s = bcfg.navigation_network_retry_delay_ms / 1000.0
+    net_backoff = max(1.0, bcfg.navigation_network_retry_backoff)
+    cont_delay_s = bcfg.navigation_content_retry_delay_ms / 1000.0
 
     page = await context.new_page()
-    last: UrlCheckResult | None = None
     try:
-        for attempt in range(max_att):
-            try:
-                response = await page.goto(url, wait_until=wait_until, timeout=timeout)
-            except AsyncPlaywrightTimeoutError as e:
-                err_msg = str(e) or "timeout"
-                await _shot_async(page, screenshot_path)
-                last = UrlCheckResult(
+        if initial_delay_s > 0:
+            await asyncio.sleep(initial_delay_s)
+        _emit_browser_event(
+            event_log,
+            run_meta,
+            url,
+            url_index,
+            {"phase": "url_start", "network_max": net_max, "content_max": cont_max},
+        )
+
+        for content_try in range(cont_max):
+            response = None
+            for net_try in range(net_max):
+                try:
+                    response = await page.goto(url, wait_until=wait_until, timeout=timeout)
+                    break
+                except AsyncPlaywrightTimeoutError as e:
+                    err_msg = str(e) or "timeout"
+                    await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
+                    last = UrlCheckResult(
+                        ok=False,
+                        label="error",
+                        summary=f"超时: {err_msg}",
+                        status_code=None,
+                        final_url=page.url,
+                        error_message=err_msg,
+                        screenshot_path=str(screenshot_path) if screenshot_path else None,
+                    )
+                    _emit_browser_event(
+                        event_log,
+                        run_meta,
+                        url,
+                        url_index,
+                        {
+                            "phase": "goto_timeout",
+                            "network_try": net_try + 1,
+                            "content_try": content_try + 1,
+                            "error": err_msg,
+                        },
+                    )
+                    if net_try < net_max - 1:
+                        delay = net_delay_s * (net_backoff**net_try)
+                        await asyncio.sleep(delay)
+                        continue
+                    _emit_browser_event(
+                        event_log,
+                        run_meta,
+                        url,
+                        url_index,
+                        {"phase": "url_end", "label": last.label, "reason": "network_exhausted"},
+                    )
+                    return last
+                except AsyncPlaywrightError as e:
+                    err_msg = str(e) or "playwright_error"
+                    await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
+                    last = UrlCheckResult(
+                        ok=False,
+                        label="error",
+                        summary=f"导航失败: {err_msg}",
+                        status_code=None,
+                        final_url=None,
+                        error_message=err_msg,
+                        screenshot_path=str(screenshot_path) if screenshot_path else None,
+                    )
+                    _emit_browser_event(
+                        event_log,
+                        run_meta,
+                        url,
+                        url_index,
+                        {
+                            "phase": "goto_error",
+                            "network_try": net_try + 1,
+                            "content_try": content_try + 1,
+                            "error": err_msg,
+                        },
+                    )
+                    if net_try < net_max - 1:
+                        delay = net_delay_s * (net_backoff**net_try)
+                        await asyncio.sleep(delay)
+                        continue
+                    _emit_browser_event(
+                        event_log,
+                        run_meta,
+                        url,
+                        url_index,
+                        {"phase": "url_end", "label": last.label, "reason": "network_exhausted"},
+                    )
+                    return last
+
+            if response is None:
+                return UrlCheckResult(
                     ok=False,
                     label="error",
-                    summary=f"超时: {err_msg}",
-                    status_code=None,
-                    final_url=page.url,
-                    error_message=err_msg,
-                    screenshot_path=str(screenshot_path) if screenshot_path else None,
-                )
-                if attempt < max_att - 1:
-                    await asyncio.sleep(retry_delay)
-                    continue
-                return last
-            except AsyncPlaywrightError as e:
-                err_msg = str(e) or "playwright_error"
-                await _shot_async(page, screenshot_path)
-                last = UrlCheckResult(
-                    ok=False,
-                    label="error",
-                    summary=f"导航失败: {err_msg}",
+                    summary="未知状态（无响应）",
                     status_code=None,
                     final_url=None,
-                    error_message=err_msg,
-                    screenshot_path=str(screenshot_path) if screenshot_path else None,
+                    error_message="未知状态",
+                    screenshot_path=None,
                 )
-                if attempt < max_att - 1:
-                    await asyncio.sleep(retry_delay)
-                    continue
-                return last
 
-            last = await classify_after_goto_async(page, response, cfg, screenshot_path)
+            last = await classify_after_goto_async(
+                page,
+                response,
+                cfg,
+                screenshot_path,
+                screenshot_budget=screenshot_budget,
+            )
+            _emit_browser_event(
+                event_log,
+                run_meta,
+                url,
+                url_index,
+                {
+                    "phase": "classified",
+                    "content_try": content_try + 1,
+                    "label": last.label,
+                    "status_code": last.status_code,
+                },
+            )
             if last.label in ("success", "blocked", "challenge"):
+                _emit_browser_event(
+                    event_log,
+                    run_meta,
+                    url,
+                    url_index,
+                    {"phase": "url_end", "label": last.label},
+                )
                 return last
-            if attempt < max_att - 1:
-                await asyncio.sleep(retry_delay)
+            if last.label == "error" and content_try < cont_max - 1:
+                _emit_browser_event(
+                    event_log,
+                    run_meta,
+                    url,
+                    url_index,
+                    {"phase": "content_retry", "sleep_s": cont_delay_s},
+                )
+                await asyncio.sleep(cont_delay_s)
                 continue
+            _emit_browser_event(
+                event_log,
+                run_meta,
+                url,
+                url_index,
+                {"phase": "url_end", "label": last.label, "reason": "content_exhausted_or_error"},
+            )
             return last
-        return last if last is not None else UrlCheckResult(
+
+        return UrlCheckResult(
             ok=False,
             label="error",
             summary="未知状态",
@@ -569,8 +636,13 @@ def _batch_size_for(cfg: AppConfig, n_urls: int) -> int:
     bcfg = cfg.browser
     raw = bcfg.tabs_batch_size
     if raw <= 0:
-        return n_urls if n_urls > 0 else 1
-    return max(1, min(raw, n_urls)) if n_urls else 1
+        batch = n_urls if n_urls > 0 else 1
+    else:
+        batch = max(1, min(raw, n_urls)) if n_urls else 1
+    cap = bcfg.max_concurrent_tabs
+    if cap > 0 and n_urls > 0:
+        batch = max(1, min(batch, cap, n_urls))
+    return batch
 
 
 async def check_urls_in_batches_async(
@@ -578,6 +650,10 @@ async def check_urls_in_batches_async(
     urls: list[str],
     cfg: AppConfig,
     screenshot_paths: list[Path | None],
+    *,
+    event_log: Callable[[dict[str, Any]], None] | None = None,
+    screenshot_budget: ScreenshotBudgetAsync | None = None,
+    run_meta: dict[str, Any] | None = None,
 ) -> list[UrlCheckResult]:
     """
     按 tabs_batch_size 分批：每批内多标签并行导航并各自重试；
@@ -604,6 +680,10 @@ async def check_urls_in_batches_async(
                 cfg,
                 screenshot_paths[i],
                 initial_delay_s=(i - start) * stagger_s,
+                url_index=i + 1,
+                event_log=event_log,
+                screenshot_budget=screenshot_budget,
+                run_meta=run_meta,
             )
             for i in range(start, end)
         ]
@@ -629,30 +709,63 @@ async def check_urls_in_batches_async(
     return results
 
 
-async def run_urls_with_async_browser(cfg: AppConfig, urls: list[str], screenshot_paths: list[Path | None]) -> list[UrlCheckResult]:
+async def run_urls_with_async_browser(
+    cfg: AppConfig,
+    urls: list[str],
+    screenshot_paths: list[Path | None],
+    *,
+    event_log: Callable[[dict[str, Any]], None] | None = None,
+    screenshot_budget: ScreenshotBudgetAsync | None = None,
+    run_meta: dict[str, Any] | None = None,
+) -> list[UrlCheckResult]:
     """启动一次浏览器 + 一个 Context，分批并行检测全部 URL。"""
     async with async_playwright() as p:
-        browser = await _launch_browser_async(p, cfg)
+        browser = await launch_google_chrome_async(p, cfg)
         try:
             context = await _new_context_async(browser, cfg)
             try:
-                return await check_urls_in_batches_async(context, urls, cfg, screenshot_paths)
+                return await check_urls_in_batches_async(
+                    context,
+                    urls,
+                    cfg,
+                    screenshot_paths,
+                    event_log=event_log,
+                    screenshot_budget=screenshot_budget,
+                    run_meta=run_meta,
+                )
             finally:
                 await context.close()
         finally:
             await browser.close()
 
 
-def run_urls_with_async_browser_sync(cfg: AppConfig, urls: list[str], screenshot_paths: list[Path | None]) -> list[UrlCheckResult]:
+def run_urls_with_async_browser_sync(
+    cfg: AppConfig,
+    urls: list[str],
+    screenshot_paths: list[Path | None],
+    *,
+    event_log: Callable[[dict[str, Any]], None] | None = None,
+    screenshot_budget: ScreenshotBudgetAsync | None = None,
+    run_meta: dict[str, Any] | None = None,
+) -> list[UrlCheckResult]:
     """同步封装：内部 asyncio.run，供 runner 调用。"""
-    return asyncio.run(run_urls_with_async_browser(cfg, urls, screenshot_paths))
+    return asyncio.run(
+        run_urls_with_async_browser(
+            cfg,
+            urls,
+            screenshot_paths,
+            event_log=event_log,
+            screenshot_budget=screenshot_budget,
+            run_meta=run_meta,
+        )
+    )
 
 
 def check_url(url: str, cfg: AppConfig, screenshot_path: Path | None) -> UrlCheckResult:
     """启动浏览器、单 URL 检测（适合无需复用上下文的场景）。"""
     path = screenshot_path
     with sync_playwright() as p:
-        browser = _launch_browser(p, cfg)
+        browser = launch_google_chrome_sync(p, cfg)
         try:
             context = _new_context(browser, cfg)
             page = context.new_page()
@@ -668,7 +781,7 @@ def check_url(url: str, cfg: AppConfig, screenshot_path: Path | None) -> UrlChec
 def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
     """同一出口 IP 下复用一个 BrowserContext（同步 API；runner 已改用异步分批入口）。"""
     with sync_playwright() as p:
-        browser = _launch_browser(p, cfg)
+        browser = launch_google_chrome_sync(p, cfg)
         context = _new_context(browser, cfg)
         try:
             yield context
@@ -684,4 +797,6 @@ def format_cell_status(result: UrlCheckResult) -> str:
         return f"受限/拒绝 | {result.summary} | {result.final_url or ''}"
     if result.label == "challenge":
         return f"验证墙 | {result.summary} | {result.final_url or ''}"
+    if result.label == "skipped":
+        return f"已跳过（未测浏览器）| {result.summary} | {result.error_message or ''}"
     return f"失败 | {result.summary} | {result.error_message or ''} | {result.final_url or ''}"
