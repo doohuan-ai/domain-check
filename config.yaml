@@ -1,9 +1,16 @@
 # =============================================================================
-# 示例配置：domain-test --config ./本文件.yaml（与包内 builtin_config.yaml 深度合并）
-# 完整注释与默认值请以：domain-test --template 为准（与 builtin 一致）
-# 本文件演示「与内置相同的全部键」；勿将含真实密码的副本提交到公开仓库
+# 示例配置（可直接改值）：domain-test --config ./config.yaml
+# 与 builtin_config.yaml 深度合并。为了便于你调试，本文件保留了完整注释。
+#
+# 【先改这几项就能跑通主流程】
+# 1) urls
+# 2) router.host / router.user / router.password
+# 3) nat.target_src
+# 4) 可选：probe.enabled + probe.urls（线路健康度信号）
+# 5) 可选：precheck.enabled（每条业务 URL 的 DNS/TCP/PING 预检）
 # =============================================================================
 
+# 待测业务 URL（浏览器会真实打开这些地址）
 urls:
   - "https://accounts.x.ai/check-login?redirect=grok-com"
   - "https://www.waterwipes.com"
@@ -33,21 +40,28 @@ urls:
   - "https://this-domain-does-not-exist-abc123.com"
 
 router:
+  # 路由器地址（公司内网可达）
   host: "192.168.11.254"
+  # SSH 端口
   port: 22100
+  # SSH 用户名
   user: "your_router_user"
+  # SSH 密码（勿提交真实值）
   password: "your_router_password"
   lo_interface: lo
   ssh_encoding: utf-8
   nat_settle_seconds: 8
 
 nat:
+  # NAT 规则中的 src-address
   target_src: "192.168.11.115"
 
 run:
+  # abort: 某出口 NAT 失败就中止；skip_ip: 仅跳过该出口并写 Excel 占位行
   nat_failure_policy: skip_ip
 
 logging:
+  # 是否输出 events.jsonl（与 Excel 同目录）
   json_events_log: false
   json_events_filename: events.jsonl
 
@@ -104,10 +118,21 @@ access:
     - "人机验证"
     - "安全验证"
 
+# 出口探针（urllib）：在每个出口切换成功后，先测这些“基准 URL”
 probe:
   enabled: false
   timeout_ms: 8000
   urls: []
+
+# 每条业务 URL 在 page.goto 前的预检（DNS/TCP/PING）
+precheck:
+  enabled: false
+  dns: true
+  tcp: true
+  ping: false
+  ping_count: 1
+  timeout_ms: 1500
+  tcp_port: 443
 
 output:
   dir: "."

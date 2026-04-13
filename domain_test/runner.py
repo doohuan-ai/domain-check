@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import sys
 import threading
@@ -12,6 +13,10 @@ from typing import Any, Callable
 
 import paramiko
 from playwright.sync_api import Error as PlaywrightError
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Confirm, IntPrompt, Prompt
+import yaml
 
 from domain_test.browser_check import (
     UrlCheckResult,
@@ -78,6 +83,129 @@ def _make_json_event_logger(path: Path | None) -> Callable[[dict[str, Any]], Non
                 f.write(line)
 
     return emit
+
+
+def _collect_urls_interactive() -> list[str]:
+    print("请输入待测 URL（每行一个，输入空行结束）：")
+    out: list[str] = []
+    while True:
+        s = input("> ").strip()
+        if not s:
+            break
+        out.append(s)
+    return out
+
+
+def _run_wizard() -> int:
+    rich_on = use_rich_for_stdout()
+    c = Console() if rich_on else None
+    if c:
+        c.print(
+            Panel(
+                "[bold]domain-test 新手向导[/bold]\n"
+                "按步骤输入关键参数，自动生成可运行配置。",
+                border_style="cyan",
+            )
+        )
+    out_default = "config.wizard.yaml"
+    if c:
+        out_raw = Prompt.ask("输出配置文件路径", default=out_default).strip()
+    else:
+        out_raw = input(f"输出配置文件路径（默认 {out_default}）: ").strip() or out_default
+    out_path = Path(out_raw).expanduser()
+    if out_path.exists():
+        overwrite = Confirm.ask("文件已存在，是否覆盖？", default=False) if c else (
+            input("文件已存在，覆盖吗？[y/N]: ").strip().lower() == "y"
+        )
+        if not overwrite:
+            print("已取消。")
+            return 1
+
+    local_only = Confirm.ask("是否仅本机浏览器模式（跳过路由器/NAT）？", default=False) if c else (
+        input("是否仅本机浏览器模式？[y/N]: ").strip().lower() == "y"
+    )
+    urls = _collect_urls_interactive()
+    if not urls:
+        print("至少需要 1 个 URL。")
+        return 1
+
+    headless = Confirm.ask("浏览器是否无头运行（headless）？", default=True) if c else (
+        input("浏览器是否无头运行？[Y/n]: ").strip().lower() not in ("n", "no")
+    )
+    batch = IntPrompt.ask("每批并发标签数 tabs_batch_size", default=8) if c else int(
+        input("每批并发标签数（默认 8）: ").strip() or "8"
+    )
+    probe_on = Confirm.ask("是否开启出口探针（urllib）？", default=True) if c else (
+        input("是否开启出口探针？[Y/n]: ").strip().lower() not in ("n", "no")
+    )
+    precheck_on = Confirm.ask("是否开启 URL 前置预检（DNS/TCP/PING）？", default=True) if c else (
+        input("是否开启 URL 前置预检？[Y/n]: ").strip().lower() not in ("n", "no")
+    )
+    excel_prefix = Prompt.ask("Excel 文件名前缀", default="domain_check") if c else (
+        input("Excel 文件名前缀（默认 domain_check）: ").strip() or "domain_check"
+    )
+
+    cfg: dict[str, Any] = {
+        "urls": urls,
+        "browser": {
+            "headless": bool(headless),
+            "tabs_batch_size": max(1, int(batch)),
+            "goto_timeout_ms": 60000,
+            "navigation_network_max_attempts": 3,
+            "navigation_content_max_attempts": 1,
+            "screenshot_on_success": True,
+        },
+        "probe": {
+            "enabled": bool(probe_on),
+            "timeout_ms": 8000,
+            "urls": ["https://www.cloudflare.com/cdn-cgi/trace"],
+        },
+        "precheck": {
+            "enabled": bool(precheck_on),
+            "dns": True,
+            "tcp": True,
+            "ping": False,
+            "ping_count": 1,
+            "timeout_ms": 1500,
+            "tcp_port": 443,
+        },
+        "output": {
+            "excel_prefix": excel_prefix.strip() or "domain_check",
+            "dir": ".",
+        },
+    }
+    if not local_only:
+        if c:
+            c.print(Panel("继续输入路由器参数（完整 NAT 流程必填）", border_style="bright_black"))
+        host = Prompt.ask("router.host（路由器地址）") if c else input("router.host: ").strip()
+        user = Prompt.ask("router.user（SSH 用户名）") if c else input("router.user: ").strip()
+        pwd = Prompt.ask("router.password（SSH 密码）", password=True) if c else getpass.getpass("router.password: ")
+        target_src = Prompt.ask("nat.target_src（NAT 规则源地址）") if c else input("nat.target_src: ").strip()
+        cfg["router"] = {"host": host.strip(), "user": user.strip(), "password": pwd, "port": 22}
+        cfg["nat"] = {"target_src": target_src.strip()}
+
+    txt = (
+        "# 由 domain-test --wizard 自动生成\n"
+        "# 可继续手工补充其它高级参数；未写的参数使用 builtin_config.yaml 默认值\n\n"
+        + yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False)
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(txt, encoding="utf-8")
+
+    if c:
+        c.print(
+            Panel(
+                f"[bold green]配置已生成[/bold green]\n{out_path.resolve()}\n\n"
+                f"下一步运行：\n[cyan]domain-test --config \"{out_path}\""
+                + (" --local-browser[/cyan]" if local_only else "[/cyan]"),
+                border_style="green",
+            )
+        )
+    else:
+        print(f"配置已生成: {out_path.resolve()}")
+        cmd = f'domain-test --config "{out_path}"' + (" --local-browser" if local_only else "")
+        print(f"下一步运行: {cmd}")
+    return 0
 
 
 def run_local_browser_only(cfg: AppConfig, ui: RunUI) -> Path:
@@ -220,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="domain-test",
         description="多出口 IP 网站可达性巡检",
-        usage="%(prog)s [--help] [--config PATH [--local-browser]] | --template",
+        usage="%(prog)s [--help] [--config PATH [--local-browser]] | --template | --wizard",
         add_help=False,
     )
     parser.add_argument(
@@ -245,15 +373,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="输出当前完整配置",
     )
+    g.add_argument(
+        "--wizard",
+        action="store_true",
+        help="交互式新手向导：一步步生成可运行配置",
+    )
     args = parser.parse_args(argv)
 
-    if args.template and args.config is not None:
-        parser.error("不能同时指定 --template 与 --config")
-    if args.template and args.local_browser:
-        parser.error("--template 不能与 --local-browser 同时使用")
-    if not args.template and args.config is None:
+    if (args.template or args.wizard) and args.config is not None:
+        parser.error("不能同时指定 --template/--wizard 与 --config")
+    if (args.template or args.wizard) and args.local_browser:
+        parser.error("--template/--wizard 不能与 --local-browser 同时使用")
+    if not args.template and not args.wizard and args.config is None:
         parser.print_help(sys.stderr)
-        print("\n必须指定 --config PATH 或 --template", file=sys.stderr)
+        print("\n必须指定 --config PATH 或 --template 或 --wizard", file=sys.stderr)
         return 2
 
     if args.template:
@@ -262,6 +395,8 @@ def main(argv: list[str] | None = None) -> int:
         if not text.endswith("\n"):
             sys.stdout.write("\n")
         return 0
+    if args.wizard:
+        return _run_wizard()
 
     cfg_path = Path(args.config)
     if not cfg_path.is_file():

@@ -74,6 +74,19 @@ class ProbeConfig:
 
 
 @dataclass
+class PrecheckConfig:
+    """URL 前置网络预检（DNS/TCP/PING），用于线路健康度信号。"""
+
+    enabled: bool = False
+    dns: bool = True
+    tcp: bool = True
+    ping: bool = False
+    ping_count: int = 1
+    timeout_ms: int = 1500
+    tcp_port: int = 443
+
+
+@dataclass
 class BrowserConfig:
     """默认使用本机 Google Chrome（Playwright channel 或显式路径），无痕通过启动参数实现。"""
     channel: str = "chrome"
@@ -82,7 +95,7 @@ class BrowserConfig:
     headless: bool = True
     goto_timeout_ms: int = 60_000
     wait_until: str = "domcontentloaded"
-    screenshot_on_success: bool = False
+    screenshot_on_success: bool = True
     viewport_width: int = 1280
     viewport_height: int = 720
     user_agent: str | None = None
@@ -182,6 +195,7 @@ class AppConfig:
     access: AccessConfig = field(default_factory=AccessConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     probe: ProbeConfig = field(default_factory=ProbeConfig)
+    precheck: PrecheckConfig = field(default_factory=PrecheckConfig)
 
 
 def _parse_urls(raw: Any) -> list[str]:
@@ -255,6 +269,20 @@ def _parse_probe_dict(raw: Any) -> ProbeConfig:
     )
 
 
+def _parse_precheck_dict(raw: Any) -> PrecheckConfig:
+    if not isinstance(raw, dict):
+        return PrecheckConfig()
+    return PrecheckConfig(
+        enabled=bool(raw.get("enabled", False)),
+        dns=bool(raw.get("dns", True)),
+        tcp=bool(raw.get("tcp", True)),
+        ping=bool(raw.get("ping", False)),
+        ping_count=max(1, int(raw.get("ping_count", 1))),
+        timeout_ms=max(200, int(raw.get("timeout_ms", 1500))),
+        tcp_port=max(1, min(65535, int(raw.get("tcp_port", 443)))),
+    )
+
+
 def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     r = d.get("router") or {}
     n = d.get("nat") or {}
@@ -264,6 +292,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     a = d.get("access") or {}
     o = d.get("output") or {}
     pr = d.get("probe") or {}
+    pc = d.get("precheck") or {}
     ch_raw = b.get("channel", "chrome")
     if ch_raw is None or (isinstance(ch_raw, str) and ch_raw.strip() == ""):
         channel_val = "chrome"
@@ -304,7 +333,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             headless=bool(b.get("headless", True)),
             goto_timeout_ms=int(b.get("goto_timeout_ms", 60_000)),
             wait_until=str(b.get("wait_until", "domcontentloaded")),
-            screenshot_on_success=bool(b.get("screenshot_on_success", False)),
+            screenshot_on_success=bool(b.get("screenshot_on_success", True)),
             viewport_width=int(b.get("viewport_width", 1280)),
             viewport_height=int(b.get("viewport_height", 720)),
             user_agent=_parse_user_agent(b),
@@ -352,6 +381,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             max_total_screenshot_bytes=max(0, int(o.get("max_total_screenshot_bytes", 100_000_000))),
         ),
         probe=_parse_probe_dict(pr),
+        precheck=_parse_precheck_dict(pc),
     )
 
 
@@ -445,6 +475,14 @@ def validate_config_schema(cfg: AppConfig) -> None:
         errs.append(f"urls 数量过多（>500），当前 {len(cfg.urls)}，请分批运行")
     if cfg.probe.enabled and len(cfg.probe.urls) > 40:
         errs.append(f"probe.urls 过多（>40），当前 {len(cfg.probe.urls)}")
+    if cfg.precheck.timeout_ms < 200 or cfg.precheck.timeout_ms > 30_000:
+        errs.append(f"precheck.timeout_ms 须在 200–30000；当前: {cfg.precheck.timeout_ms}")
+    if cfg.precheck.ping_count < 1 or cfg.precheck.ping_count > 5:
+        errs.append(f"precheck.ping_count 须在 1–5；当前: {cfg.precheck.ping_count}")
+    if cfg.precheck.tcp_port < 1 or cfg.precheck.tcp_port > 65535:
+        errs.append(f"precheck.tcp_port 须在 1–65535；当前: {cfg.precheck.tcp_port}")
+    if cfg.precheck.enabled and not (cfg.precheck.dns or cfg.precheck.tcp or cfg.precheck.ping):
+        errs.append("precheck.enabled=true 时，dns/tcp/ping 至少开启一项")
     if errs:
         raise ValueError("配置校验未通过:\n- " + "\n- ".join(errs))
 

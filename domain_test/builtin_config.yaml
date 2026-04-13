@@ -158,9 +158,25 @@ probe:
   enabled: false
   timeout_ms: 8000
   urls: []
-  # 示例：
-  # urls:
-  #   - "https://www.cloudflare.com/cdn-cgi/trace"
+
+# -----------------------------------------------------------------------------
+# precheck：对「每条业务 URL」在 page.goto 之前做轻量网络预检（DNS/TCP/PING），结果写入
+# Excel 的「线路健康度」「预检详情」列。它是线路信号，不替代浏览器真实性能与业务判定。
+# -----------------------------------------------------------------------------
+precheck:
+  enabled: false
+  # 是否做 DNS 解析检查（建议开）
+  dns: true
+  # 是否做 TCP 端口连通（建议开）
+  tcp: true
+  # 是否做 ICMP ping（很多网站禁 ping，建议默认关，只作参考）
+  ping: false
+  # ping 发包次数（仅 ping=true 生效）
+  ping_count: 1
+  # 单项检查超时毫秒
+  timeout_ms: 1500
+  # URL 无显式端口时，TCP 默认端口
+  tcp_port: 443
 
 # -----------------------------------------------------------------------------
 # output：报告目录与 Excel / 嵌入图参数；max_total_screenshot_bytes 限制单次运行截图总字节。

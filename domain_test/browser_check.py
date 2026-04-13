@@ -25,6 +25,7 @@ from domain_test.browser_launch import (
     launch_google_chrome_sync,
 )
 from domain_test.config import AppConfig
+from domain_test.precheck_net import run_url_precheck
 from domain_test.random_surfer import post_goto_random_surfer
 from domain_test.run_support import ScreenshotBudgetAsync
 
@@ -42,6 +43,9 @@ def results_when_nat_skipped(urls: list[str], exc: BaseException) -> list[UrlChe
             final_url=None,
             error_message=detail,
             screenshot_path=None,
+            line_health="未检测",
+            precheck_detail="未执行（NAT/SSH 失败）",
+            precheck_state="off",
         )
         for _ in urls
     ]
@@ -56,6 +60,9 @@ class UrlCheckResult:
     final_url: str | None
     error_message: str | None
     screenshot_path: str | None
+    line_health: str = "未检测"
+    precheck_detail: str = "关闭"
+    precheck_state: str = "off"
 
 
 _ALLOWED_WAIT = frozenset({"load", "domcontentloaded", "networkidle", "commit"})
@@ -469,6 +476,13 @@ async def _check_one_url_async(
     net_delay_s = bcfg.navigation_network_retry_delay_ms / 1000.0
     net_backoff = max(1.0, bcfg.navigation_network_retry_backoff)
     cont_delay_s = bcfg.navigation_content_retry_delay_ms / 1000.0
+    pre = await asyncio.to_thread(run_url_precheck, url, cfg)
+
+    def _with_precheck(res: UrlCheckResult) -> UrlCheckResult:
+        res.line_health = pre.line_health
+        res.precheck_detail = pre.detail
+        res.precheck_state = pre.state
+        return res
 
     page = await context.new_page()
     try:
@@ -479,7 +493,13 @@ async def _check_one_url_async(
             run_meta,
             url,
             url_index,
-            {"phase": "url_start", "network_max": net_max, "content_max": cont_max},
+            {
+                "phase": "url_start",
+                "network_max": net_max,
+                "content_max": cont_max,
+                "precheck_state": pre.state,
+                "line_health": pre.line_health,
+            },
         )
 
         for content_try in range(cont_max):
@@ -523,7 +543,7 @@ async def _check_one_url_async(
                         url_index,
                         {"phase": "url_end", "label": last.label, "reason": "network_exhausted"},
                     )
-                    return last
+                    return _with_precheck(last)
                 except AsyncPlaywrightError as e:
                     err_msg = str(e) or "playwright_error"
                     await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
@@ -559,10 +579,11 @@ async def _check_one_url_async(
                         url_index,
                         {"phase": "url_end", "label": last.label, "reason": "network_exhausted"},
                     )
-                    return last
+                    return _with_precheck(last)
 
             if response is None:
-                return UrlCheckResult(
+                return _with_precheck(
+                    UrlCheckResult(
                     ok=False,
                     label="error",
                     summary="未知状态（无响应）",
@@ -570,6 +591,7 @@ async def _check_one_url_async(
                     final_url=None,
                     error_message="未知状态",
                     screenshot_path=None,
+                    )
                 )
 
             last = await classify_after_goto_async(
@@ -599,7 +621,7 @@ async def _check_one_url_async(
                     url_index,
                     {"phase": "url_end", "label": last.label},
                 )
-                return last
+                return _with_precheck(last)
             if last.label == "error" and content_try < cont_max - 1:
                 _emit_browser_event(
                     event_log,
@@ -617,9 +639,10 @@ async def _check_one_url_async(
                 url_index,
                 {"phase": "url_end", "label": last.label, "reason": "content_exhausted_or_error"},
             )
-            return last
+            return _with_precheck(last)
 
-        return UrlCheckResult(
+        return _with_precheck(
+            UrlCheckResult(
             ok=False,
             label="error",
             summary="未知状态",
@@ -627,6 +650,7 @@ async def _check_one_url_async(
             final_url=None,
             error_message="未知状态",
             screenshot_path=None,
+            )
         )
     finally:
         await page.close()

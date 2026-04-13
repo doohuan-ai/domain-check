@@ -5,6 +5,7 @@
 - **运行**：**`domain-test --config path/to.yaml`**。先读包内 **`domain_test/builtin_config.yaml`**（完整键 + 默认值，敏感项为空），再与 **`--config`** 文件**深度合并**。
 - **最少填写**：**`--config`** 中一般补 **`urls`**、**`router.host` / `user` / `password`**、**`nat.target_src`** 即可；其余沿用内置。
 - **带注释的完整模板**：**`domain-test --template`**（输出与 **`builtin_config.yaml`** 一致，含全部 `#` 注释）。仓库根 **[`config.yaml`](config.yaml)** 为可改数值的示例副本。
+- **新手向导（推荐）**：**`domain-test --wizard`**（交互式问答，自动生成可运行配置文件）。
 
 ## 目录与命名
 
@@ -31,6 +32,7 @@ pip install -e .
 ```bash
 domain-test --help
 domain-test --template
+domain-test --wizard
 domain-test --config ./config.yaml
 # 本机无路由器时：只测 Chrome + Excel（不 SSH、不切 NAT）
 domain-test --config ./local-only.yaml --local-browser
@@ -48,6 +50,8 @@ urls:
 
 **`--local-browser`**：`--config` 里**只需写 `urls`（及 `browser`/`output`/`access` 等如需）**，`router` / `nat` 可留空；**不校验**路由器与 NAT、**不执行** **`get_lo_ips` / `change_nat`**。Excel 第一列公网 IP 为占位 **`本机(无路由器)`**，其余与正式报告一致。
 
+**`--wizard`**：在终端分步询问 URL、路由器、NAT、探针、预检等关键参数，自动生成 YAML，并给出下一步运行命令。适合首次上手或快速生成新环境配置。
+
 报告根目录由 YAML 的 **`output.dir`** 控制（默认 **`.`**），其下为 **`<excel_prefix>_<时间戳>/`**（与 **`output.excel_prefix`** 一致，默认形如 **`domain_check_1776051316/`**），内含 **xlsx**、**png**。
 
 ### 浏览器与访问策略
@@ -64,7 +68,8 @@ urls:
 
 ### Excel 版式
 
-- **纵向**：每个待测 URL **一行**，列为 **`公网IP` / `URL` / `结果` / `探针状态` / `出口探针详情` / `截图`**（同一公网 IP 会重复多行）。**浏览器结果**与 **urllib 探针**分列，避免把「出口网络不通」与「站点本身失败」混在同一语义里。
+- **纵向**：每个待测 URL **一行**，列为 **`公网IP` / `URL` / `结果` / `线路健康度` / `预检详情(DNS/TCP/PING)` / `探针状态` / `出口探针详情` / `截图`**（同一公网 IP 会重复多行）。
+- **分层思路**：`线路健康度` 是 page.goto 前的轻量网络信号；`探针状态` 是出口级基准 URL 信号；`结果` 是真实浏览器业务 URL 结果。三者分开看，定位更快。
 - **表头**：深蓝底白字、居中、底边加粗；**冻结首行**；**自动筛选**。
 - **配色**：**`结果`** 与 **`截图`** 列同底色（正常绿 / 受限与验证墙黄 / 失败红 / **跳过**灰）；**`探针状态`** 单独着色（探针全成功绿、部分失败/失败黄、关闭灰）；**`公网IP`/`URL`/`出口探针详情`** 为浅灰底。
 - **对齐**：文字列**垂直居中**（URL/结果可换行）；**`探针状态`** 居中；截图列居中。
@@ -80,6 +85,11 @@ urls:
 ### 出口探针（可选）
 
 - 配置顶层 **`probe`**：`enabled: true` 与 **`urls`** 列表；在 **每次 `change_nat` 成功之后、开浏览器之前**，由本机 **`urllib`** 发 GET；**`探针状态`** 为 **正常 / 部分失败 / 失败** 等，**`出口探针详情`** 为单行摘要。若 **SSH/NAT 失败** 且策略为 **`run.nat_failure_policy: skip_ip`**，则该出口不写探针摘要（详见下节）。
+
+### URL 预检（可选）
+
+- 配置顶层 **`precheck`**：在每条业务 URL `page.goto` 前执行 **DNS / TCP / 可选 ping**，并写入 Excel 的 **`线路健康度`** 与 **`预检详情`**。
+- 这是**线路健康度信号**，不是业务可达性的最终结论。即使预检全绿，目标站仍可能因风控/验证墙/应用错误而失败。
 
 ### 路由器失败与可观测性
 
