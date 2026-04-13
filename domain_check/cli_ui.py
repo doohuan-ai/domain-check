@@ -5,6 +5,7 @@ stdout 非 TTY（如管道、重定向）时自动降级为纯文本，无需额
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 from typing import Callable, TypeVar
@@ -192,3 +193,125 @@ def _status_cell(label: str) -> tuple[str, str]:
 def use_rich_for_stdout() -> bool:
     """是否启用 Rich：仅当 stdout 为 TTY 时开启；管道或非交互环境自动纯文本。"""
     return bool(sys.stdout.isatty())
+
+
+def use_rich_stream(stream) -> bool:
+    """某输出流是否适合 Rich（TTY）。"""
+    try:
+        return bool(stream.isatty())
+    except Exception:
+        return False
+
+
+def _format_argparse_option_line(action: argparse.Action) -> str:
+    parts: list[str] = []
+    for flag in action.option_strings:
+        if action.nargs == 0:
+            parts.append(flag)
+        else:
+            meta = action.metavar or str(action.dest).upper()
+            parts.append(f"{flag} {meta}")
+    return ", ".join(parts)
+
+
+def print_cli_help(parser: argparse.ArgumentParser, *, file=None) -> None:
+    """``--help`` 与缺参提示：TTY 下用 Rich 表格；否则回退 argparse 文本。"""
+    file = file or sys.stdout
+    if not use_rich_stream(file):
+        # 避免子类 ``print_help`` 与 ``print_cli_help`` 互相递归
+        argparse.ArgumentParser.print_help(parser, file=file)
+        return
+
+    console = Console(file=file, theme=_THEME_OBJ, highlight=False, soft_wrap=True)
+    usage_one_line = " ".join(parser.format_usage().strip().split())
+    desc = (parser.description or "").strip()
+
+    body: list[Text | str] = [Text(usage_one_line, style="dt.muted")]
+    if desc:
+        body.insert(0, Text(desc, style="dt.sub"))
+        body.insert(1, "")
+
+    console.print()
+    console.print(
+        Panel(
+            Group(*body),
+            title=Text.assemble((parser.prog, "dt.title")),
+            border_style="dt.accent",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="dt.table_head",
+        border_style="dt.muted",
+        pad_edge=False,
+    )
+    table.add_column("选项", style="dt.accent", no_wrap=True)
+    table.add_column("说明")
+    for action in parser._actions:
+        if not action.option_strings:
+            continue
+        table.add_row(_format_argparse_option_line(action), action.help or "")
+    console.print()
+    console.print(
+        Panel(table, title="[dt.table_head]参数[/]", border_style="dt.muted", box=box.ROUNDED, padding=(0, 1))
+    )
+    console.print()
+
+
+def print_cli_missing_command_hint(message: str, *, file=None) -> None:
+    """未指定 --config / --template / --wizard 时的补充提示。"""
+    file = file or sys.stderr
+    if not use_rich_stream(file):
+        print(f"\n{message}", file=file)
+        return
+    console = Console(file=file, theme=_THEME_OBJ, highlight=False, soft_wrap=True)
+    console.print()
+    console.print(
+        Panel(
+            Text(message, style="dt.warn"),
+            title="[dt.table_head]提示[/]",
+            border_style="dt.warn",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
+def print_cli_parse_error(parser: argparse.ArgumentParser, message: str, *, file=None) -> None:
+    """argparse 校验失败时的统一输出。"""
+    file = file or sys.stderr
+    usage_one_line = " ".join(parser.format_usage().strip().split())
+    if not use_rich_stream(file):
+        print(usage_one_line, file=file)
+        print(f"{parser.prog}: error: {message}", file=file)
+        return
+    Console(file=file, theme=_THEME_OBJ, highlight=False, soft_wrap=True).print(
+        Panel(
+            Group(Text(usage_one_line, style="dt.muted"), Text(message, style="dt.err")),
+            title="[dt.title]参数错误[/]",
+            border_style="dt.err",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
+def print_simple_runtime_error(message: str, *, file=None, title: str = "错误") -> None:
+    """运行前错误（如配置文件不存在），与 RunUI.error 风格一致。"""
+    file = file or sys.stderr
+    if not use_rich_stream(file):
+        print(message, file=file)
+        return
+    Console(file=file, theme=_THEME_OBJ, highlight=False, soft_wrap=True).print(
+        Panel(
+            Text(message, style="dt.err"),
+            title=f"[dt.title]{title}[/]",
+            border_style="dt.err",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )

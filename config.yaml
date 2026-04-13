@@ -1,143 +1,17 @@
-# =============================================================================
-# 示例配置（可直接改值）：domain-check --config ./config.yaml
-# 与 builtin_config.yaml 深度合并。为了便于你调试，本文件保留了完整注释。
+# 精简示例：与包内 builtin_config.yaml 深度合并；未写项沿用内置默认值。
+# 完整键与注释请运行：domain-check --template
 #
-# 【先改这几项就能跑通主流程】
-# 1) urls
-# 2) router.host / router.user / router.password
-# 3) nat.target_src
-# 4) 可选：probe.enabled + probe.urls（线路健康度信号）
-# 5) 可选：precheck.enabled（每条业务 URL 的 DNS/TCP/PING 预检）
-# =============================================================================
+# 完整 NAT 流程至少填写：urls、router（host/user/password 等）、nat.target_src
+# 本机仅测浏览器：domain-check --config ./config.yaml --local-browser（此时主要填 urls）
 
-# 待测业务 URL（浏览器会真实打开这些地址）
 urls:
-  - "https://accounts.x.ai/check-login?redirect=grok-com"
-  - "https://www.waterwipes.com"
-  - "https://app.navosagent.ai"
-  - "https://code.visualstudio.com"
-  - "https://youmind.com"
-  - "https://x.com"
-  - "https://yuid.com"
-  - "https://pebsstspbfn.com"
-  - "https://www.google.com"
-  - "https://www.bing.com"
-  - "https://www.yahoo.com"
-  - "https://www.baidu.com"
-  - "https://www.sogou.com"
-  - "https://www.360.com"
-  - "https://www.taobao.com"
-  - "https://www.jd.com"
-  - "https://www.tmall.com"
-  - "https://www.amazon.com"
-  - "https://www.ebay.com"
-  - "https://www.aliexpress.com"
-  - "https://www.walmart.com"
-  - "https://www.costco.com"
-  - "https://www.target.com"
-  - "https://www.bestbuy.com"
-  - "https://www.costco.com"
-  - "https://this-domain-does-not-exist-abc123.com"
+  - "https://www.example.com"
 
 router:
-  # 路由器地址（公司内网可达）
-  host: "192.168.11.254"
-  # SSH 端口
-  port: 22100
-  # SSH 用户名
-  user: "your_router_user"
-  # SSH 密码（勿提交真实值）
-  password: "your_router_password"
-  lo_interface: lo
-  ssh_encoding: utf-8
-  nat_settle_seconds: 8
+  host: "192.168.1.1"
+  port: 22
+  user: "admin"
+  password: "请填写"
 
 nat:
-  # NAT 规则中的 src-address
-  target_src: "192.168.11.115"
-
-run:
-  # abort: 某出口 NAT 失败就中止；skip_ip: 仅跳过该出口并写 Excel 占位行
-  nat_failure_policy: skip_ip
-
-logging:
-  # 是否输出 events.jsonl（与 Excel 同目录）
-  json_events_log: false
-  json_events_filename: events.jsonl
-
-browser:
-  channel: chrome
-  chrome_path: ""
-  incognito: true
-  headless: false
-  goto_timeout_ms: 60000
-  wait_until: domcontentloaded
-  screenshot_on_success: true
-  viewport_width: 1280
-  viewport_height: 720
-  tabs_batch_size: 0
-  max_concurrent_tabs: 0
-  tabs_batch_delay_ms: 300
-  navigation_network_max_attempts: 3
-  navigation_network_retry_delay_ms: 3000
-  navigation_network_retry_backoff: 1.0
-  navigation_content_max_attempts: 1
-  navigation_content_retry_delay_ms: 2000
-  tab_stagger_ms: 150
-  use_stealth_launch_args: true
-  disable_chrome_extensions: true
-  extra_chrome_args: []
-  locale: ""
-  timezone_id: ""
-  inject_automation_cleanup_script: true
-  post_goto_try_load_state: true
-  post_goto_load_state_timeout_ms: 30000
-  post_goto_settle_ms: 2000
-  random_surfer_enabled: false
-  random_surfer_budget_ms: 12000
-  random_surfer_max_clicks: 3
-  random_surfer_scroll: true
-  random_surfer_scroll_passes: 3
-  random_surfer_mouse_wiggle: true
-  user_agent: null
-
-access:
-  enable_body_keyword_check: false
-  body_text_max_chars: 20000
-  block_keywords:
-    - "access denied"
-    - "forbidden"
-    - "not available in your region"
-    - "地区限制"
-  captcha_keywords:
-    - "slide to verify"
-    - "please slide"
-    - "unusual traffic"
-    - "verify you are human"
-    - "captcha"
-    - "人机验证"
-    - "安全验证"
-
-# 出口探针（urllib）：在每个出口切换成功后，先测这些“基准 URL”
-probe:
-  enabled: false
-  timeout_ms: 8000
-  urls: []
-
-# 每条业务 URL 在 page.goto 前的预检（DNS/TCP/PING）
-precheck:
-  enabled: false
-  dns: true
-  tcp: true
-  ping: false
-  ping_count: 1
-  timeout_ms: 1500
-  tcp_port: 443
-
-output:
-  dir: "."
-  excel_prefix: domain_check
-  embed_screenshot_max_width: 300
-  embed_screenshot_max_height: 180
-  data_row_height: 24
-  max_total_screenshot_bytes: 100000000
+  target_src: "192.168.1.100"

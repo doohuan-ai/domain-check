@@ -13,9 +13,11 @@ from typing import Any, Callable
 
 import paramiko
 from playwright.sync_api import Error as PlaywrightError
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.text import Text
 import yaml
 
 from domain_check.browser_check import (
@@ -23,7 +25,14 @@ from domain_check.browser_check import (
     results_when_nat_skipped,
     run_urls_with_async_browser_sync,
 )
-from domain_check.cli_ui import RunUI, use_rich_for_stdout
+from domain_check.cli_ui import (
+    RunUI,
+    print_cli_help,
+    print_cli_missing_command_hint,
+    print_cli_parse_error,
+    print_simple_runtime_error,
+    use_rich_for_stdout,
+)
 from domain_check.config import (
     AppConfig,
     load_config,
@@ -85,11 +94,17 @@ def _make_json_event_logger(path: Path | None) -> Callable[[dict[str, Any]], Non
     return emit
 
 
-def _collect_urls_interactive() -> list[str]:
-    print("请输入待测 URL（每行一个，输入空行结束）：")
+def _collect_urls_interactive(c: Console | None) -> list[str]:
+    if c:
+        c.print(Text("请输入待测 URL（每行一个，输入空行结束）：", style="dt.step"))
+    else:
+        print("请输入待测 URL（每行一个，输入空行结束）：")
     out: list[str] = []
     while True:
-        s = input("> ").strip()
+        if c:
+            s = Prompt.ask("  URL", default="").strip()
+        else:
+            s = input("> ").strip()
         if not s:
             break
         out.append(s)
@@ -118,15 +133,25 @@ def _run_wizard() -> int:
             input("文件已存在，覆盖吗？[y/N]: ").strip().lower() == "y"
         )
         if not overwrite:
-            print("已取消。")
+            if c:
+                c.print(
+                    Panel(Text("已取消。", style="dt.sub"), border_style="dt.muted", box=box.ROUNDED)
+                )
+            else:
+                print("已取消。")
             return 1
 
     local_only = Confirm.ask("是否仅本机浏览器模式（跳过路由器/NAT）？", default=False) if c else (
         input("是否仅本机浏览器模式？[y/N]: ").strip().lower() == "y"
     )
-    urls = _collect_urls_interactive()
+    urls = _collect_urls_interactive(c)
     if not urls:
-        print("至少需要 1 个 URL。")
+        if c:
+            c.print(
+                Panel(Text("至少需要 1 个 URL。", style="dt.warn"), border_style="dt.warn", box=box.ROUNDED)
+            )
+        else:
+            print("至少需要 1 个 URL。")
         return 1
 
     headless = Confirm.ask("浏览器是否无头运行（headless）？", default=True) if c else (
@@ -344,8 +369,36 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
     return xlsx_path
 
 
+class _RichHelpAction(argparse.Action):
+    """TTY 下由 ``print_cli_help`` 输出 Rich 版帮助。"""
+
+    def __init__(
+        self,
+        option_strings: list[str],
+        dest: str = argparse.SUPPRESS,
+        default=argparse.SUPPRESS,
+        nargs: int = 0,
+        **kwargs: Any,
+    ) -> None:
+        kwargs.setdefault("help", "显示帮助并退出")
+        super().__init__(option_strings, dest, nargs=nargs, default=default, **kwargs)
+
+    def __call__(self, parser: argparse.ArgumentParser, namespace, values, option_string=None) -> None:
+        print_cli_help(parser, file=sys.stdout)
+        parser.exit(0)
+
+
+class DomainCheckArgumentParser(argparse.ArgumentParser):
+    def print_help(self, file=None) -> None:
+        print_cli_help(self, file=file or sys.stdout)
+
+    def error(self, message: str) -> None:
+        print_cli_parse_error(self, message, file=sys.stderr)
+        self.exit(2)
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
+    parser = DomainCheckArgumentParser(
         prog="domain-check",
         description="RouterOS 多出口 IP 场景下，网站可达性巡检并生成 Excel 报告",
         usage="%(prog)s [--help] [--config PATH [--local-browser]] | --template | --wizard",
@@ -353,30 +406,30 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--help",
-        action="help",
+        action=_RichHelpAction,
+        nargs=0,
         default=argparse.SUPPRESS,
-        help="show this help message and exit",
     )
     parser.add_argument(
         "--local-browser",
         action="store_true",
-        help="跳过路由器校验与 SSH/NAT",
+        help="跳过路由器校验与 SSH/NAT（须与 --config 同用）",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
         "--config",
         metavar="PATH",
-        help="YAML 配置路径",
+        help="YAML 配置文件路径",
     )
     g.add_argument(
         "--template",
         action="store_true",
-        help="输出当前完整配置",
+        help="输出内置完整默认配置（含注释），供复制为自有模板",
     )
     g.add_argument(
         "--wizard",
         action="store_true",
-        help="交互式新手向导",
+        help="交互式向导，生成可运行 YAML",
     )
     args = parser.parse_args(argv)
 
@@ -385,8 +438,8 @@ def main(argv: list[str] | None = None) -> int:
     if (args.template or args.wizard) and args.local_browser:
         parser.error("--template/--wizard 不能与 --local-browser 同时使用")
     if not args.template and not args.wizard and args.config is None:
-        parser.print_help(sys.stderr)
-        print("\n必须指定 --config PATH 或 --template 或 --wizard", file=sys.stderr)
+        print_cli_help(parser, file=sys.stderr)
+        print_cli_missing_command_hint("必须指定 --config PATH 或 --template 或 --wizard")
         return 2
 
     if args.template:
@@ -400,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg_path = Path(args.config)
     if not cfg_path.is_file():
-        print(f"配置文件不存在: {cfg_path.resolve()}", file=sys.stderr)
+        print_simple_runtime_error(f"配置文件不存在: {cfg_path.resolve()}")
         return 1
 
     rich_on = use_rich_for_stdout()
