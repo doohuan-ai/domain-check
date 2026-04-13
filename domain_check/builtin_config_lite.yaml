@@ -1,0 +1,121 @@
+# =============================================================================
+# domain-check 极简配置模板（建议先用这个）
+#
+# 目标：只保留最常用参数，先跑通；高级参数在下方“高级区”按需取消注释。
+# 使用：
+#   domain-check --template-lite > config.lite.yaml
+#   domain-check --config ./config.lite.yaml
+# =============================================================================
+
+# 1) 必填：待测业务 URL（浏览器会真实打开）
+urls: []
+
+# 2) 必填：路由器 SSH（若只做本机浏览器测试，可用 --local-browser 跳过）
+router:
+  host: ""
+  user: ""
+  password: ""
+  # 常见可保留默认
+  port: 22
+  lo_interface: lo
+  ssh_encoding: utf-8
+  nat_settle_seconds: 8
+
+# 3) 必填：NAT 规则中的 src-address
+nat:
+  target_src: ""
+
+# 4) 常用：浏览器与重试
+browser:
+  headless: true
+  goto_timeout_ms: 60000
+  tabs_batch_size: 8
+  navigation_network_max_attempts: 3
+  navigation_content_max_attempts: 1
+  screenshot_on_success: true
+
+# 5) 常用：探针（出口线路信号）
+probe:
+  enabled: true
+  timeout_ms: 8000
+  urls:
+    - "https://www.cloudflare.com/cdn-cgi/trace"
+
+# 6) 常用：每条 URL 前置预检（线路健康度）
+precheck:
+  enabled: true
+  dns: true
+  tcp: true
+  ping: false
+
+# 7) 常用：输出
+output:
+  excel_prefix: domain_check
+  dir: "."
+
+# -----------------------------------------------------------------------------
+# 高级区（按需开启）
+# -----------------------------------------------------------------------------
+# run:
+#   nat_failure_policy: skip_ip   # abort | skip_ip
+#
+# logging:
+#   json_events_log: false
+#   json_events_filename: events.jsonl
+#
+# browser:
+#   channel: chrome
+#   chrome_path: ""
+#   incognito: true
+#   viewport_width: 1280
+#   viewport_height: 720
+#   max_concurrent_tabs: 0
+#   tabs_batch_delay_ms: 0
+#   navigation_network_retry_delay_ms: 3000
+#   navigation_network_retry_backoff: 1.0
+#   navigation_content_retry_delay_ms: 2000
+#   tab_stagger_ms: 150
+#   use_stealth_launch_args: true
+#   disable_chrome_extensions: true
+#   extra_chrome_args: []
+#   locale: ""
+#   timezone_id: ""
+#   inject_automation_cleanup_script: true
+#   post_goto_try_load_state: true
+#   post_goto_load_state_timeout_ms: 30000
+#   post_goto_settle_ms: 1500
+#   random_surfer_enabled: false
+#   random_surfer_budget_ms: 12000
+#   random_surfer_max_clicks: 3
+#   random_surfer_scroll: true
+#   random_surfer_scroll_passes: 3
+#   random_surfer_mouse_wiggle: true
+#   user_agent: null
+#
+# access:
+#   enable_body_keyword_check: false
+#   body_text_max_chars: 20000
+#   block_keywords:
+#     - "access denied"
+#     - "forbidden"
+#     - "not available in your region"
+#     - "地区限制"
+#   captcha_keywords:
+#     - "slide to verify"
+#     - "please slide"
+#     - "unusual traffic"
+#     - "verify you are human"
+#     - "captcha"
+#     - "人机验证"
+#     - "安全验证"
+#
+# precheck:
+#   ping_count: 1
+#   timeout_ms: 1500
+#   tcp_port: 443
+#
+# output:
+#   embed_screenshot_max_width: 300
+#   embed_screenshot_max_height: 180
+#   data_row_height: 24
+#   max_total_screenshot_bytes: 100000000

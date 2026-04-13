@@ -1,5 +1,5 @@
 # =============================================================================
-# 示例配置（可直接改值）：domain-test --config ./config.yaml
+# 示例配置（可直接改值）：domain-check --config ./config.yaml
 # 与 builtin_config.yaml 深度合并。为了便于你调试，本文件保留了完整注释。
 #
 # 【先改这几项就能跑通主流程】
@@ -19,7 +19,7 @@ urls:
   - "https://youmind.com"
   - "https://x.com"
   - "https://yuid.com"
-  - "https://Weprovideawebserviceontheexampledomainhoststoprovidebasicinformation.com"
+  - "https://pebsstspbfn.com"
   - "https://www.google.com"
   - "https://www.bing.com"
   - "https://www.yahoo.com"
