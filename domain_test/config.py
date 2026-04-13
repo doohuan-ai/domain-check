@@ -90,9 +90,6 @@ class BrowserConfig:
     tabs_batch_size: int = 0
     # 相邻两批之间等待毫秒（上一批全部加载结束后，再开下一批）
     tabs_batch_delay_ms: int = 0
-    # 兼容旧键：未单独配置 network_* 时，回退到 navigation_max_attempts / navigation_retry_delay_ms
-    navigation_max_attempts: int = 3
-    navigation_retry_delay_ms: int = 3000
     # 网络类（goto 超时、连接重置等）最大尝试次数与退避
     navigation_network_max_attempts: int = 3
     navigation_network_retry_delay_ms: int = 3000
@@ -275,10 +272,8 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     out_dir = o.get("dir", ".")
     if not isinstance(out_dir, str) or not str(out_dir).strip():
         out_dir = "."
-    legacy_nav = max(1, int(b.get("navigation_max_attempts", 3)))
-    legacy_delay = max(0, int(b.get("navigation_retry_delay_ms", 3000)))
-    net_max = max(1, int(b.get("navigation_network_max_attempts", legacy_nav)))
-    net_delay = max(0, int(b.get("navigation_network_retry_delay_ms", legacy_delay)))
+    net_max = max(1, int(b.get("navigation_network_max_attempts", 3)))
+    net_delay = max(0, int(b.get("navigation_network_retry_delay_ms", 3000)))
     net_backoff = float(b.get("navigation_network_retry_backoff", 1.0))
     cont_max = max(1, int(b.get("navigation_content_max_attempts", 1)))
     cont_delay = max(0, int(b.get("navigation_content_retry_delay_ms", 2000)))
@@ -315,8 +310,6 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             user_agent=_parse_user_agent(b),
             tabs_batch_size=int(b.get("tabs_batch_size", 0)),
             tabs_batch_delay_ms=int(b.get("tabs_batch_delay_ms", 0)),
-            navigation_max_attempts=legacy_nav,
-            navigation_retry_delay_ms=legacy_delay,
             navigation_network_max_attempts=net_max,
             navigation_network_retry_delay_ms=net_delay,
             navigation_network_retry_backoff=net_backoff,

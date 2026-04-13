@@ -1,6 +1,6 @@
 """
 终端 UI（Rich）：风格接近 Claude Code / 现代 CLI — 圆角分区、柔和配色、步骤与表格。
-非 TTY 或 ``--plain`` 时自动降级为纯文本。
+stdout 非 TTY（如管道、重定向）时自动降级为纯文本，无需额外参数。
 """
 
 from __future__ import annotations
@@ -189,8 +189,6 @@ def _status_cell(label: str) -> tuple[str, str]:
     return "失败", "dt.err"
 
 
-def use_rich_for_stdout(*, plain_flag: bool) -> bool:
-    """是否启用 Rich：显式 ``--plain`` 或 stdout 非 TTY 时关闭。"""
-    if plain_flag:
-        return False
+def use_rich_for_stdout() -> bool:
+    """是否启用 Rich：仅当 stdout 为 TTY 时开启；管道或非交互环境自动纯文本。"""
     return bool(sys.stdout.isatty())

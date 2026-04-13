@@ -34,11 +34,9 @@ domain-test --template
 domain-test --config ./config.yaml
 # 本机无路由器时：只测 Chrome + Excel（不 SSH、不切 NAT）
 domain-test --config ./local-only.yaml --local-browser
-# 关闭 Rich 终端美化（日志重定向、CI 等）
-domain-test --config ./config.yaml --plain
 ```
 
-终端默认使用 **[Rich](https://github.com/Textualize/rich)** 输出（圆角分区、步骤前缀、表格汇总、旋转状态），风格接近常见「代码助手」CLI；**stdout 不是 TTY**（如管道）时自动纯文本，也可显式 **`--plain`**。
+终端默认使用 **[Rich](https://github.com/Textualize/rich)** 输出（圆角分区、步骤前缀、表格汇总、旋转状态），风格接近常见「代码助手」CLI；**stdout 不是 TTY**（如管道、重定向、CI）时**自动**使用纯文本，无需额外参数。
 
 **`local-only.yaml` 最小示例**（可与内置合并，只覆盖 `urls` 即可）：
 
@@ -58,7 +56,7 @@ urls:
 - **`browser.tabs_batch_size`**：**0** 表示一批内同时跑完全部 URL；设为 **5** 等则每批最多 5 个并行，批与批之间间隔 **`browser.tabs_batch_delay_ms`**。
 - **`browser.max_concurrent_tabs`**：与上项配合；当 **`tabs_batch_size: 0`** 且 URL 很多时，用本值限制**单批**最多并发页签（**0** 表示不额外限制）。建议 **8–32**，减轻内存与磁盘峰值。
 - **`browser.tab_stagger_ms`**：同一批内，第 *k* 个 URL 会比第 0 个晚 *k*×该毫秒数再开始 **`goto`**（包括 `tabs_batch_size: 0` 时），用于缓和瞬时并发；设为 **0** 则同批内同时发起导航。
-- **重试（分层）**：**网络类**（`goto` 超时、连接类错误）使用 **`navigation_network_max_attempts`**、**`navigation_network_retry_delay_ms`**、**`navigation_network_retry_backoff`**（指数因子，**1.0** 为固定间隔）；**内容类**（已返回文档但 HTTP 非成功等需再次 `goto`）使用 **`navigation_content_max_attempts`** 与 **`navigation_content_retry_delay_ms`**。**403/451/验证墙/正文关键词**不重试。未写 **`navigation_network_*`** 时回退旧键 **`navigation_max_attempts` / `navigation_retry_delay_ms`**。
+- **重试（分层）**：**网络类**（`goto` 超时、连接类错误）使用 **`navigation_network_max_attempts`**、**`navigation_network_retry_delay_ms`**、**`navigation_network_retry_backoff`**（指数因子，**1.0** 为固定间隔）；**内容类**（已返回文档但 HTTP 非成功等需再次 `goto`）使用 **`navigation_content_max_attempts`** 与 **`navigation_content_retry_delay_ms`**。**403/451/验证墙/正文关键词**不重试。
 - **截图总预算**：**`output.max_total_screenshot_bytes`**（默认约 **100MB**，**0** 不限制）；超出后仍完成检测，但**不再写入**后续截图。
 - **截图**：均为 **视口**（可见区域），非整页长图。
 - **渲染等待**：**`post_goto_try_load_state`**（默认再等 **`load`**）+ **`post_goto_settle_ms`**（默认约 **1.5s**）在导航返回后、正文检测与截图前执行，减轻 SPA 只出现加载动画就关页的问题；仍不够时可加大 settle 或把 **`wait_until`** 设为 **`load`** / **`networkidle`**（后者易因长连接卡住，慎用）。

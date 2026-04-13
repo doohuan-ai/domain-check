@@ -1,118 +1,145 @@
 # =============================================================================
-# 当前配置模板，可复制改名为 config.yaml 后使用：domain-test --config path/to/config.yaml
-# config.yaml 必填项：urls、host、user、password、target_src
-# config.yaml 中未写的键沿用下列值；写入的键则覆盖同名键
+# domain-test 内置默认配置
+#
+# 合并规则：启动时用本文件与「--config 指定的 YAML」做深度合并；用户文件中出现的键
+# 覆盖此处同路径的键；用户未写的键沿用本文件默认值。
+#
+# 命令示例：
+#   domain-test --config ./config.yaml
+#   domain-test --config ./minimal.yaml --local-browser   # 不 SSH / 不切 NAT，只测本机 Chrome
+# 将本文件（含全部注释）打印到 stdout，便于复制为自有模板：
+#   domain-test --template
+#
+# 正式巡检时，用户文件一般至少填写：urls、router.host、router.user、router.password、
+# nat.target_src。其余可按需覆盖。
 # =============================================================================
 
-# 待测域名列表：字符串列表；也可改为多行标量，每行一个域名，# 开头为行注释
+# -----------------------------------------------------------------------------
+# urls：待测站点列表。支持 YAML 字符串列表；也可改为「|」多行块标量，每行一个 URL，
+# 以 # 开头的行为注释。与下方 probe.urls（urllib 探针）相互独立。
+# -----------------------------------------------------------------------------
 urls: []
 
+# -----------------------------------------------------------------------------
+# router：通过 SSH 连接 MikroTik RouterOS，读取 loopback 公网 IP、执行 SNAT 切换。
+# -----------------------------------------------------------------------------
 router:
-  # 路由器 SSH 地址（--config 必填）
+  # SSH 主机名或 IP（用户配置中必填，除非使用 --local-browser）
   host: ""
-  # SSH 端口
+  # SSH 端口（1–65535；启动前由 validate_config_schema 校验）
   port: 22
-  # SSH 用户名（--config 必填）
+  # SSH 登录名（必填，除非 --local-browser）
   user: ""
-  # SSH 密码（--config 必填）
+  # SSH 密码（必填，除非 --local-browser）
   password: ""
-  # 公网 loopback 所在接口名，用于列出出口 IP
+  # 公网地址所在接口名，用于 /ip address print 解析出口 IP 列表
   lo_interface: lo
-  # SSH 终端输出解码，防 /ip address print 乱码
+  # exec_command 输出解码（避免中文/特殊字符接口名乱码）
   ssh_encoding: utf-8
-  # 每次改 NAT 后等待秒数再测 URL
+  # 每次成功执行 NAT 相关命令后，休眠秒数再开始探针/浏览器（给连接跟踪收敛时间）
   nat_settle_seconds: 8
 
+# -----------------------------------------------------------------------------
+# nat：与 /ip firewall nat 中匹配 src-address 的规则对应；用于 set to-addresses。
+# -----------------------------------------------------------------------------
 nat:
-  # 做 SNAT 的内网源 IP（--config 必填）
+  # 内网源地址（CPE/LAN 主机在防火墙 NAT 规则里的 src-address，用户配置必填）
   target_src: ""
 
-# 编排策略：与浏览器检测解耦
+# -----------------------------------------------------------------------------
+# run：整轮编排策略（与单次 page 检测逻辑无关）。
+# -----------------------------------------------------------------------------
 run:
-  # SSH/NAT 失败时：abort 终止整轮；skip_ip 跳过该出口并在 Excel 写「已跳过」占位行（不启动浏览器）
+  # SSH/NAT 切换失败时：abort = 立即终止整轮；skip_ip = 跳过该出口，Excel 写「已跳过」
+  # 占位行（不启动浏览器、不跑 urllib 探针），避免半份表被误读。
   nat_failure_policy: skip_ip
 
-# 可观测性：与 Excel 同目录追加 JSON 行（每行一条事件，便于对照）
+# -----------------------------------------------------------------------------
+# logging：可观测性。开启后在与 Excel 同一次运行的子目录内追加 JSON 行文件。
+# -----------------------------------------------------------------------------
 logging:
+  # 是否写入 json_events_filename
   json_events_log: false
+  # 事件文件名（相对当次运行目录，如 domain_check_1234567890/events.jsonl）
   json_events_filename: events.jsonl
 
+# -----------------------------------------------------------------------------
+# browser：本机 Google Chrome + Playwright；多标签异步巡检、分批与重试参数均在此。
+# -----------------------------------------------------------------------------
 browser:
-  # 本机 Chrome
+  # Playwright channel，本机 Chrome 一般为 chrome
   channel: chrome
-  # Chrome 可执行文件绝对路径；空串表示按系统默认路径
+  # Chrome 可执行文件绝对路径；空字符串表示由 Playwright 与系统默认路径解析
   chrome_path: ""
-  # 是否无痕
+  # 启动参数 --incognito
   incognito: true
-  # 是否无头（后台无窗口）
+  # true = 无头（无窗口）；调试可改为 false
   headless: true
-  # 单次 page.goto 超时毫秒
+  # 单次 page.goto 超时（毫秒）；与 validate_config_schema 上下限一致
   goto_timeout_ms: 60000
-  # 传给 Playwright：domcontentloaded / load / networkidle 等
+  # Playwright wait_until：load / domcontentloaded / networkidle / commit
   wait_until: domcontentloaded
-  # HTTP 成功时是否截图（仅浏览器视口可见区域，非整页滚动）
+  # HTTP 2xx 且规则通过时是否保存视口截图（非整页长图）
   screenshot_on_success: true
-  # 视口宽（像素）
   viewport_width: 1280
-  # 视口高（像素）
   viewport_height: 720
-  # 每批并行标签数：0 表示一批内同时打开全部 URL；>0 则每批最多该数量，批与批之间见 tabs_batch_delay_ms
+  # 每批并行标签数：0 = 单批尽量跑满（仍受 max_concurrent_tabs 约束）；>0 则每批最多 N 个
   tabs_batch_size: 0
-  # tabs_batch_size 为 0 时：单批最多并发页签（0 表示不限制；大列表建议 8–32 防内存/磁盘尖峰）
+  # tabs_batch_size 为 0 时限制单批最大并发页签；0 = 不额外限制；大 URL 列表建议 8–32
   max_concurrent_tabs: 0
-  # 上一批全部结束后，延迟多少毫秒再启动下一批（仅当 URL 总数需多批时有效）
+  # 上一批全部结束后，延迟毫秒再开下一批（多批时生效）
   tabs_batch_delay_ms: 0
-  # 兼容旧键：未单独写 navigation_network_* 时，回退到下列两项
-  navigation_max_attempts: 3
-  navigation_retry_delay_ms: 3000
-  # 网络类（goto 超时、连接错误等）最大尝试次数与退避（指数因子，1.0=固定间隔）
+  # --- 网络类重试：goto 阶段超时、连接错误等 ---
   navigation_network_max_attempts: 3
   navigation_network_retry_delay_ms: 3000
+  # 每次网络重试前休眠 = delay × backoff^试次；1.0 表示固定间隔
   navigation_network_retry_backoff: 1.0
-  # 内容类（已返回文档但 HTTP 非成功等，再次 goto）；验证墙/关键词命中不重试
+  # --- 内容类重试：已成功 goto 但分类为 HTTP 错误等需再次导航；验证墙/关键词不重试 ---
   navigation_content_max_attempts: 1
   navigation_content_retry_delay_ms: 2000
-  # 同一批内：第 k 个 URL 比第 0 个晚 k×本值（毫秒）再开始 goto；tabs_batch_size 为 0 时仍生效，避免瞬间打满目标站。0 表示不错开
+  # 同批内第 k 个 URL 晚 k×本毫秒再发起 goto；0 = 同批同时发起
   tab_stagger_ms: 150
-  # 参考 aips-desktop BrowserManager：去掉 --enable-automation 并追加轻量反自动化参数（非 Node stealth 插件）
+  # 轻量反自动化启动参数（非 puppeteer stealth 全量）
   use_stealth_launch_args: true
-  # 禁用扩展，减轻 ERR_BLOCKED_BY_CLIENT（本机广告拦截等）
+  # 禁用 Chrome 扩展，减轻 ERR_BLOCKED_BY_CLIENT
   disable_chrome_extensions: true
-  # 追加 Chrome 命令行，例如 [ "--proxy-server=..." ]（慎用）
+  # 追加传给 Chrome 的 argv 列表，每项一个字符串
   extra_chrome_args: []
-  # 浏览器语言，如 zh-CN；空串表示不设置
+  # BCP 47 语言，如 zh-CN；空 = 不设置
   locale: ""
-  # IANA 时区，如 Asia/Shanghai；空串表示不设置
+  # IANA 时区，如 Asia/Shanghai；空 = 不设置
   timezone_id: ""
-  # 每个页面注入前清理 Selenium/WebDriver 遗留 window 属性（与 aips setupAntiDetectionScripts 同源，不含 Canvas 噪声）
+  # 页面注入前清理 WebDriver/Selenium 遗留 window 属性
   inject_automation_cleanup_script: true
-  # goto 后尽量再等浏览器 load 事件（SPA 在 domcontentloaded 后仍可能空白）；超时则继续
+  # goto 返回后是否再等待 load（SPA 辅助）
   post_goto_try_load_state: true
   post_goto_load_state_timeout_ms: 30000
-  # 再等固定毫秒后做正文检测与截图，减轻「只截到转圈」；纯静态站可改小或 0
+  # 再等固定毫秒后做正文检测与截图
   post_goto_settle_ms: 1500
-  # HTTP 2xx 且通过关键词检查后：随机滚动/点击若干可见链接再截图（慎用；仅异步巡检）
+  # 随机冲浪（仅异步路径；默认关）
   random_surfer_enabled: false
   random_surfer_budget_ms: 12000
   random_surfer_max_clicks: 3
   random_surfer_scroll: true
   random_surfer_scroll_passes: 3
   random_surfer_mouse_wiggle: true
-  # 自定义 User-Agent；null 表示使用浏览器默认
+  # 自定义 UA；null 使用浏览器默认
   user_agent: null
 
+# -----------------------------------------------------------------------------
+# access：HTTP 2xx 后的正文扫描（可选）；与「能否打开页面」分层判定。
+# -----------------------------------------------------------------------------
 access:
-  # true 时在 HTTP 2xx 也扫正文，命中 block_keywords 则判受限（易误判）
+  # true 时扫描正文是否命中 block_keywords（易误判，按需开启）
   enable_body_keyword_check: false
   # 参与扫描的正文最大字符数
   body_text_max_chars: 20000
-  # 正文中出现任一子串则判受限（仅当 enable_body_keyword_check 为 true 时生效）
   block_keywords:
     - "access denied"
     - "forbidden"
     - "not available in your region"
     - "地区限制"
-  # HTTP 2xx 时扫正文，命中则判为「验证墙」（不尝试绕过验证码）
+  # 命中则标为验证墙 challenge（不尝试绕过验证码）
   captcha_keywords:
     - "slide to verify"
     - "please slide"
@@ -122,24 +149,28 @@ access:
     - "人机验证"
     - "安全验证"
 
-# 切换 NAT 后、开浏览器前：urllib 探针（与下方浏览器测的 urls 分离）；Excel「探针状态」「出口探针详情」列
+# -----------------------------------------------------------------------------
+# probe：切换 NAT 成功后、打开浏览器前，用 urllib 对下列 URL 发 GET；结果写入 Excel
+# 「探针状态」「出口探针详情」，与 urls 的浏览器检测结果分列，避免语义混淆。
+# enabled 为 true 时必须在 urls 列表中至少配置一条探针地址（启动前校验）。
+# -----------------------------------------------------------------------------
 probe:
   enabled: false
   timeout_ms: 8000
   urls: []
-  # 示例（按需取消注释）:
+  # 示例：
   # urls:
   #   - "https://www.cloudflare.com/cdn-cgi/trace"
 
+# -----------------------------------------------------------------------------
+# output：报告目录与 Excel / 嵌入图参数；max_total_screenshot_bytes 限制单次运行截图总字节。
+# -----------------------------------------------------------------------------
 output:
-  # 报告根目录（相对 cwd）；其下会创建 <excel_prefix>_<时间戳>/（与 xlsx 同名前缀）
+  # 报告根目录（相对进程 cwd）；其下创建 <excel_prefix>_<unix时间>/ 子目录
   dir: "."
-  # Excel 文件名前缀，实际为 前缀_时间戳.xlsx
   excel_prefix: domain_check
-  # 嵌入截图：固定高度（像素），宽度按原图比例自动算（需 Pillow）
   embed_screenshot_max_width: 300
   embed_screenshot_max_height: 180
-  # 无截图时的数据行高（Excel 磅）
   data_row_height: 24
-  # 单次运行截图文件总字节上限（超出则跳过后续截图，仍完成 URL 检测）；0 不限制
+  # 截图累计字节上限；超出后仍检测 URL 但不再写新截图；0 = 不限制
   max_total_screenshot_bytes: 100000000

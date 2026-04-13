@@ -220,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="domain-test",
         description="多出口 IP 网站可达性巡检",
-        usage="%(prog)s [--help] [--config PATH [--local-browser] [--plain]] | --template",
+        usage="%(prog)s [--help] [--config PATH [--local-browser]] | --template",
         add_help=False,
     )
     parser.add_argument(
@@ -233,11 +233,6 @@ def main(argv: list[str] | None = None) -> int:
         "--local-browser",
         action="store_true",
         help="跳过路由器校验与 SSH/NAT，仅本机 Chrome 测 urls 并写 Excel（与 --config 合用）",
-    )
-    parser.add_argument(
-        "--plain",
-        action="store_true",
-        help="关闭 Rich 美化（纯文本）；管道或非 TTY 时默认即纯文本",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
@@ -273,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"配置文件不存在: {cfg_path.resolve()}", file=sys.stderr)
         return 1
 
-    rich_on = use_rich_for_stdout(plain_flag=args.plain)
+    rich_on = use_rich_for_stdout()
     ui = RunUI(plain=not rich_on)
 
     try:

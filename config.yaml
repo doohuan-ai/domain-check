@@ -1,43 +1,41 @@
-# 示例：domain-test --config ./本文件.yaml（与内置深度合并）
-# 带全部注释的模板：domain-test --template（与包内 builtin_config.yaml 一致）
-# 最少在 --config 中补：urls、router.host/user/password、nat.target_src
+# =============================================================================
+# 示例配置：domain-test --config ./本文件.yaml（与包内 builtin_config.yaml 深度合并）
+# 完整注释与默认值请以：domain-test --template 为准（与 builtin 一致）
+# 本文件演示「与内置相同的全部键」；勿将含真实密码的副本提交到公开仓库
+# =============================================================================
 
-# 待测 URL：可用块列表（每行 - "..."）或流式列表 urls: [ "a", "b" ]；也可用多行字符串，每行一个 URL
-urls: [
-    "https://accounts.x.ai/check-login?redirect=grok-com",
-    "https://www.waterwipes.com",
-    "https://app.navosagent.ai",
-    "https://code.visualstudio.com",
-    "https://youmind.com",
-    "https://x.com",
-    "https://yuid.com",
-    "https://Weprovideawebserviceontheexampledomainhoststoprovidebasicinformation.com",
-    "https://www.google.com",
-    "https://www.bing.com",
-    "https://www.yahoo.com",
-    "https://www.baidu.com",
-    "https://www.sogou.com",
-    "https://www.360.com",
-    "https://www.taobao.com",
-    "https://www.jd.com",
-    "https://www.tmall.com",
-    "https://www.amazon.com",
-    "https://www.ebay.com",
-    "https://www.aliexpress.com",
-    "https://www.walmart.com",
-    "https://www.costco.com",
-    "https://www.target.com",
-    "https://www.bestbuy.com",
-    "https://www.costco.com",
-    "https://this-domain-does-not-exist-abc123.com"
-]
+urls:
+  - "https://accounts.x.ai/check-login?redirect=grok-com"
+  - "https://www.waterwipes.com"
+  - "https://app.navosagent.ai"
+  - "https://code.visualstudio.com"
+  - "https://youmind.com"
+  - "https://x.com"
+  - "https://yuid.com"
+  - "https://Weprovideawebserviceontheexampledomainhoststoprovidebasicinformation.com"
+  - "https://www.google.com"
+  - "https://www.bing.com"
+  - "https://www.yahoo.com"
+  - "https://www.baidu.com"
+  - "https://www.sogou.com"
+  - "https://www.360.com"
+  - "https://www.taobao.com"
+  - "https://www.jd.com"
+  - "https://www.tmall.com"
+  - "https://www.amazon.com"
+  - "https://www.ebay.com"
+  - "https://www.aliexpress.com"
+  - "https://www.walmart.com"
+  - "https://www.costco.com"
+  - "https://www.target.com"
+  - "https://www.bestbuy.com"
+  - "https://www.costco.com"
+  - "https://this-domain-does-not-exist-abc123.com"
 
 router:
-  # 路由器 SSH 地址（--config 必填）
   host: "192.168.11.254"
   port: 22100
   user: "your_router_user"
-  # --config 必填；勿提交含真实密码的副本
   password: "your_router_password"
   lo_interface: lo
   ssh_encoding: utf-8
@@ -46,38 +44,48 @@ router:
 nat:
   target_src: "192.168.11.115"
 
+run:
+  nat_failure_policy: skip_ip
+
+logging:
+  json_events_log: false
+  json_events_filename: events.jsonl
+
 browser:
   channel: chrome
-  # chrome_path: "/usr/bin/google-chrome-stable"
+  chrome_path: ""
   incognito: true
   headless: false
   goto_timeout_ms: 60000
-  # SPA 多时可改为 load；仍建议配合 post_goto_settle_ms
   wait_until: domcontentloaded
   screenshot_on_success: true
-  post_goto_try_load_state: true
-  post_goto_settle_ms: 2000
   viewport_width: 1280
   viewport_height: 720
-  # 每批并行标签数：0 表示一批内同时打开全部 URL；>0 则每批最多该数量，批与批之间见 tabs_batch_delay_ms
-  tabs_batch_size: 3
-  # 上一批全部结束后，延迟多少毫秒再启动下一批（仅当 URL 总数需多批时有效）
+  tabs_batch_size: 0
+  max_concurrent_tabs: 0
   tabs_batch_delay_ms: 300
-  navigation_max_attempts: 3
-  navigation_retry_delay_ms: 3000
-  # navigation_network_max_attempts: 3
-  # navigation_network_retry_delay_ms: 3000
-  # navigation_network_retry_backoff: 1.0
-  # navigation_content_max_attempts: 2
-  # navigation_content_retry_delay_ms: 2000
-  # max_concurrent_tabs: 16
-  # 同批内各 URL 错开启动导航的间隔（毫秒）；0=同时发起。一批含全部 URL 时建议保留小值防打满站点
+  navigation_network_max_attempts: 3
+  navigation_network_retry_delay_ms: 3000
+  navigation_network_retry_backoff: 1.0
+  navigation_content_max_attempts: 1
+  navigation_content_retry_delay_ms: 2000
   tab_stagger_ms: 150
-  # locale: "zh-CN"
-  # timezone_id: "Asia/Shanghai"
-  # use_stealth_launch_args: true
-  # inject_automation_cleanup_script: true
-  # user_agent: "Mozilla/5.0 ..."
+  use_stealth_launch_args: true
+  disable_chrome_extensions: true
+  extra_chrome_args: []
+  locale: ""
+  timezone_id: ""
+  inject_automation_cleanup_script: true
+  post_goto_try_load_state: true
+  post_goto_load_state_timeout_ms: 30000
+  post_goto_settle_ms: 2000
+  random_surfer_enabled: false
+  random_surfer_budget_ms: 12000
+  random_surfer_max_clicks: 3
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 3
+  random_surfer_mouse_wiggle: true
+  user_agent: null
 
 access:
   enable_body_keyword_check: false
@@ -87,12 +95,19 @@ access:
     - "forbidden"
     - "not available in your region"
     - "地区限制"
+  captcha_keywords:
+    - "slide to verify"
+    - "please slide"
+    - "unusual traffic"
+    - "verify you are human"
+    - "captcha"
+    - "人机验证"
+    - "安全验证"
 
-# run:
-#   nat_failure_policy: skip_ip   # abort | skip_ip
-# logging:
-#   json_events_log: true
-#   json_events_filename: events.jsonl
+probe:
+  enabled: false
+  timeout_ms: 8000
+  urls: []
 
 output:
   dir: "."
@@ -100,4 +115,4 @@ output:
   embed_screenshot_max_width: 300
   embed_screenshot_max_height: 180
   data_row_height: 24
-  # max_total_screenshot_bytes: 100000000
+  max_total_screenshot_bytes: 100000000
