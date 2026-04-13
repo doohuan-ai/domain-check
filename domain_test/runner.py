@@ -127,18 +127,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--local-browser",
         action="store_true",
-        help="与 --config 合用：跳过路由器校验与 SSH/NAT，仅本机 Chrome 测 urls 并写 Excel",
+        help="跳过路由器校验与 SSH/NAT，仅本机 Chrome 测 urls 并写 Excel（与 --config 合用）",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
         "--config",
         metavar="PATH",
-        help="YAML 配置路径；与内置 builtin_config.yaml 深度合并",
+        help="YAML 配置路径",
     )
     g.add_argument(
         "--template",
         action="store_true",
-        help="将内置完整 YAML 模板打印到 stdout 后退出（不写 --config）",
+        help="输出当前完整配置",
     )
     args = parser.parse_args(argv)
 
