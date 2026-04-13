@@ -347,7 +347,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="domain-check",
-        description="多出口 IP 网站可达性巡检",
+        description="RouterOS 多出口 IP 场景下，网站可达性巡检并生成 Excel 报告",
         usage="%(prog)s [--help] [--config PATH [--local-browser]] | --template | --wizard",
         add_help=False,
     )
@@ -360,7 +360,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--local-browser",
         action="store_true",
-        help="跳过路由器校验与 SSH/NAT，仅本机 Chrome 测 urls 并写 Excel（与 --config 合用）",
+        help="跳过路由器校验与 SSH/NAT",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
@@ -376,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument(
         "--wizard",
         action="store_true",
-        help="交互式新手向导：一步步生成可运行配置",
+        help="交互式新手向导",
     )
     args = parser.parse_args(argv)
 
