@@ -1,0 +1,15 @@
+# 项目进度（domain-test）
+
+## 已完成（近期）
+
+- Excel 报告改为**纵向**：列 `公网IP | URL | 结果 | 截图`，每 URL 一行。
+- 截图嵌入：**高度固定** `embed_screenshot_max_height`（默认 180px），**宽度按比例**（依赖 Pillow 读原图尺寸）；行高按像素→磅换算与图高对齐。
+- 依赖增加 **Pillow**；`data_row_height` 语义为**无截图行**的 Excel 行高（磅），默认 24。
+
+## 版本
+
+- 当前包版本：**0.1.1**（与 `pyproject.toml` / `__version__` 同步）。
+
+## 可选后续
+
+- 单元测试、`CHANGELOG`、JSON 报告、非 0 退出码等按需补充。

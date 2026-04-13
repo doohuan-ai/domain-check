@@ -2,9 +2,14 @@
 # 带全部注释的模板：domain-test --template（与包内 builtin_config.yaml 一致）
 # 最少在 --config 中补：urls、router.host/user/password、nat.target_src
 
-# 待测 URL，直接写在 YAML 里（列表）；也可用多行字符串，每行一个 URL，# 开头为注释
-urls:
-  - "https://www.example.com"
+# 待测 URL：可用块列表（每行 - "..."）或流式列表 urls: [ "a", "b" ]；也可用多行字符串，每行一个 URL
+urls: [
+    "https://accounts.x.ai/check-login?redirect=grok-com",
+    "https://www.waterwipes.com",
+    "https://app.navosagent.ai",
+    "https://code.visualstudio.com",
+    "https://youmind.com",
+]
 
 router:
   # 路由器 SSH 地址（--config 必填）
@@ -24,7 +29,7 @@ browser:
   channel: chrome
   # chrome_path: "/usr/bin/google-chrome-stable"
   incognito: true
-  headless: true
+  headless: false
   goto_timeout_ms: 60000
   wait_until: domcontentloaded
   screenshot_on_success: true
@@ -46,4 +51,4 @@ output:
   excel_prefix: domain_check
   embed_screenshot_max_width: 300
   embed_screenshot_max_height: 180
-  data_row_height: 150
+  data_row_height: 24

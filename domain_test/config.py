@@ -87,7 +87,7 @@ class OutputConfig:
     excel_prefix: str = "domain_check"
     embed_screenshot_max_width: int = 300
     embed_screenshot_max_height: int = 180
-    data_row_height: float = 150
+    data_row_height: float = 24.0
 
 
 @dataclass
@@ -181,7 +181,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             excel_prefix=str(o.get("excel_prefix", "domain_check")),
             embed_screenshot_max_width=int(o.get("embed_screenshot_max_width", 300)),
             embed_screenshot_max_height=int(o.get("embed_screenshot_max_height", 180)),
-            data_row_height=float(o.get("data_row_height", 150)),
+            data_row_height=float(o.get("data_row_height", 24)),
         ),
     )
 

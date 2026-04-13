@@ -1,6 +1,6 @@
 [project]
 name = "domain-test"
-version = "0.1.0"
+version = "0.1.1"
 description = "多出口 IP 网站可达性巡检（Playwright + RouterOS SSH）"
 readme = "README.md"
 license = "MIT"
@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
   "paramiko>=3.4.0",
   "openpyxl>=3.1.0",
+  "Pillow>=10.0.0",
   "PyYAML>=6.0.1",
   "playwright>=1.40.0",
 ]

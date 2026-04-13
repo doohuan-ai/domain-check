@@ -1,4 +1,4 @@
-"""Excel 报告：表头、状态文本、底色、嵌入截图。"""
+"""Excel 报告：纵向每 URL 一行、状态底色、嵌入截图（固定高度按比例缩放宽）。"""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from typing import Sequence
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import PatternFill
-from openpyxl.utils import get_column_letter
 
 from domain_test.browser_check import UrlCheckResult, format_cell_status
 from domain_test.config import AppConfig
@@ -26,47 +25,79 @@ def _fill_for_result(result: UrlCheckResult) -> PatternFill:
     return RED
 
 
+def _px_to_row_height_points(px: float) -> float:
+    """Excel 行高为磅；按 96dpi 将像素近似为磅。"""
+    return px * 72.0 / 96.0
+
+
+def _embedded_pixel_size(image_path: Path, target_height_px: int) -> tuple[int, int]:
+    """
+    嵌入图固定高度 target_height_px，宽度按原图宽高比缩放。
+    返回 (width_px, height_px)。
+    """
+    try:
+        from PIL import Image as PILImage
+
+        with PILImage.open(image_path) as im:
+            w, h = im.size
+        if h <= 0:
+            return target_height_px, target_height_px
+        tw = max(1, round(w * target_height_px / h))
+        return tw, target_height_px
+    except Exception:
+        return target_height_px, target_height_px
+
+
 def build_workbook(
     cfg: AppConfig,
     rows: Sequence[tuple[str, list[UrlCheckResult]]],
     url_headers: list[str],
 ) -> Workbook:
     """
-    rows: 每项为 (公网 IP, 与该 IP 下列顺序与 url_headers 对齐的检测结果列表)
+    纵向表：每行一条 URL（同一公网 IP 可占多行）。
+    rows: (公网 IP, 与 url_headers 顺序对齐的 UrlCheckResult 列表)
     """
     wb = Workbook()
     ws = wb.active
     assert ws is not None
 
-    header_row = ["公网IP"] + url_headers
-    ws.append(header_row)
-
     ocfg = cfg.output
-    data_row_start = 2
+    target_h = int(ocfg.embed_screenshot_max_height)
+    if target_h <= 0:
+        target_h = 180
 
-    for r_idx, (pub_ip, results) in enumerate(rows, start=0):
-        row_num = data_row_start + r_idx
-        ws.cell(row=row_num, column=1, value=pub_ip)
-        for c_idx, res in enumerate(results, start=2):
-            text = format_cell_status(res)
-            cell = ws.cell(row=row_num, column=c_idx, value=text)
-            cell.fill = _fill_for_result(res)
+    ws.append(["公网IP", "URL", "结果", "截图"])
+    for col_letter, width in (("A", 14), ("B", 56), ("C", 42), ("D", 18)):
+        ws.column_dimensions[col_letter].width = width
+
+    def _bump_screenshot_col_width(tw_px: int) -> None:
+        # 近似：1 个 Excel「字符列宽」≈ 7 px；上限避免过宽
+        wch = min(90.0, max(18.0, tw_px / 7.0 + 2.0))
+        cur = ws.column_dimensions["D"].width or 18.0
+        if wch > cur:
+            ws.column_dimensions["D"].width = wch
+
+    for pub_ip, results in rows:
+        for url, res in zip(url_headers, results):
+            ws.append([pub_ip, url, format_cell_status(res), ""])
+            row_num = ws.max_row
+            status_cell = ws.cell(row=row_num, column=3)
+            status_cell.fill = _fill_for_result(res)
 
             sp = res.screenshot_path
             if sp and Path(sp).is_file():
+                p = Path(sp)
                 try:
-                    img = XLImage(sp)
-                    img.width = ocfg.embed_screenshot_max_width
-                    img.height = ocfg.embed_screenshot_max_height
-                    anchor = ws.cell(row=row_num, column=c_idx).coordinate
-                    ws.add_image(img, anchor)
+                    img = XLImage(str(p))
+                    tw, th = _embedded_pixel_size(p, target_h)
+                    img.width = tw
+                    img.height = th
+                    _bump_screenshot_col_width(tw)
+                    ws.add_image(img, f"D{row_num}")
+                    ws.row_dimensions[row_num].height = _px_to_row_height_points(th)
                 except OSError:
-                    pass
-
-        ws.row_dimensions[row_num].height = ocfg.data_row_height
-
-    for col in range(1, len(header_row) + 1):
-        letter = get_column_letter(col)
-        ws.column_dimensions[letter].width = 28 if col > 1 else 18
+                    ws.row_dimensions[row_num].height = float(ocfg.data_row_height)
+            else:
+                ws.row_dimensions[row_num].height = float(ocfg.data_row_height)
 
     return wb

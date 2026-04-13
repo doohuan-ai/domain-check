@@ -14,7 +14,7 @@ router:
   port: 22
   # SSH 用户名（--config 必填）
   user: ""
-  # SSH 密码（--config 必填；勿把含真实密码的文件提交 Git）
+  # SSH 密码（--config 必填）
   password: ""
   # 公网 loopback 所在接口名，用于列出出口 IP
   lo_interface: lo
@@ -66,9 +66,8 @@ output:
   dir: "."
   # Excel 文件名前缀，实际为 前缀_时间戳.xlsx
   excel_prefix: domain_check
-  # 嵌入 Excel 的截图最大宽度（像素）
+  # 嵌入截图：固定高度（像素），宽度按原图比例自动算（需 Pillow）
   embed_screenshot_max_width: 300
-  # 嵌入 Excel 的截图最大高度（像素）
   embed_screenshot_max_height: 180
-  # Excel 数据行高度
-  data_row_height: 150
+  # 无截图时的数据行高（Excel 磅）
+  data_row_height: 24
