@@ -39,7 +39,7 @@ def _normalize_wait_until(raw: str) -> str:
 
 _CHROME_INSTALL_HINT = (
     "请先安装 Google Chrome（官方下载：https://www.google.com/chrome/ ）。\n"
-    "若已安装但仍失败，请在 -c 指定的 YAML 里设置 browser.chrome_path 为可执行文件绝对路径。"
+    "若已安装但仍失败，请在 --config 指定的 YAML 里设置 browser.chrome_path 为可执行文件绝对路径。"
 )
 
 

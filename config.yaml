@@ -1,17 +1,17 @@
-# 示例：domain-test -c ./本文件.yaml（与内置深度合并）
-# 带全部注释的模板：domain-test --print-template（与包内 builtin_config.yaml 一致）
-# 最少在 -c 中补：urls、router.host/user/password、nat.target_src
+# 示例：domain-test --config ./本文件.yaml（与内置深度合并）
+# 带全部注释的模板：domain-test --template（与包内 builtin_config.yaml 一致）
+# 最少在 --config 中补：urls、router.host/user/password、nat.target_src
 
 # 待测 URL，直接写在 YAML 里（列表）；也可用多行字符串，每行一个 URL，# 开头为注释
 urls:
   - "https://www.example.com"
 
 router:
-  # 路由器 SSH 地址（-c 必填）
+  # 路由器 SSH 地址（--config 必填）
   host: "192.168.11.254"
   port: 22100
   user: "your_router_user"
-  # -c 必填；勿提交含真实密码的副本
+  # --config 必填；勿提交含真实密码的副本
   password: "your_router_password"
   lo_interface: lo
   ssh_encoding: utf-8

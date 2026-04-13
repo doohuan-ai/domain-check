@@ -29,7 +29,7 @@ def load_builtin_config_dict() -> dict[str, Any]:
 
 
 def read_builtin_config_yaml_text() -> str:
-    """内置 YAML 原文（供 ``--print-template`` 与 ``load_builtin_config_dict``）。"""
+    """内置 YAML 原文（供 ``--template`` 与 ``load_builtin_config_dict``）。"""
     return resources.files("domain_test").joinpath("builtin_config.yaml").read_text(encoding="utf-8")
 
 
@@ -212,18 +212,23 @@ def resolve_output_dir(cfg: AppConfig) -> Path:
     return path
 
 
-def validate_config(cfg: AppConfig) -> None:
+def validate_config(cfg: AppConfig, *, require_router: bool = True) -> None:
+    """
+    require_router=False 时仅校验 urls（及 output 等已由 YAML 合并），
+    供本机仅测 Playwright + Excel（--local-browser）使用。
+    """
     missing = []
-    r = cfg.router
-    if not r.host:
-        missing.append("router.host（须在 -c 中填写）")
-    if not r.user:
-        missing.append("router.user")
-    if not r.password:
-        missing.append("router.password")
-    if not cfg.nat.target_src:
-        missing.append("nat.target_src")
+    if require_router:
+        r = cfg.router
+        if not r.host:
+            missing.append("router.host（须在 --config 中填写）")
+        if not r.user:
+            missing.append("router.user")
+        if not r.password:
+            missing.append("router.password")
+        if not cfg.nat.target_src:
+            missing.append("nat.target_src")
     if not cfg.urls:
-        missing.append("urls（须在 -c 中至少填写一个待测 URL）")
+        missing.append("urls（须在 --config 中至少填写一个待测 URL）")
     if missing:
         raise ValueError("配置不完整: " + ", ".join(missing))

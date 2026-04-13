@@ -2,13 +2,14 @@
 
 在 **RouterOS** 上轮换 **loopback 公网 IP（SNAT）**，用 **Playwright + 本机 Chrome** 访问 URL，生成 **Excel**（含截图）。
 
-- **运行**：**`domain-test -c path/to.yaml`**。先读包内 **`domain_test/builtin_config.yaml`**（完整键 + 默认值，敏感项为空），再与 **`-c`** **深度合并**。
-- **最少填写**：**`-c`** 中一般补 **`urls`**、**`router.host` / `user` / `password`**、**`nat.target_src`** 即可；其余沿用内置。
-- **带注释的完整模板**：**`domain-test --print-template`**（输出与 **`builtin_config.yaml`** 一致，含全部 `#` 注释）。**`domain-test --help`** 末尾为可传键摘要。仓库根 **[`config.yaml`](config.yaml)** 为可改数值的示例副本。
+- **运行**：**`domain-test --config path/to.yaml`**。先读包内 **`domain_test/builtin_config.yaml`**（完整键 + 默认值，敏感项为空），再与 **`--config`** 文件**深度合并**。
+- **最少填写**：**`--config`** 中一般补 **`urls`**、**`router.host` / `user` / `password`**、**`nat.target_src`** 即可；其余沿用内置。
+- **带注释的完整模板**：**`domain-test --template`**（输出与 **`builtin_config.yaml`** 一致，含全部 `#` 注释）。仓库根 **[`config.yaml`](config.yaml)** 为可改数值的示例副本。
 
-## 目录说明：为什么是 `domain_test/` 包？
+## 目录与命名
 
-**`domain_test/`** 是 **Python 包**（可安装、可 `import`、可打进 wheel）。**`scripts/run_domain_test.py`** 是历史遗留：在未 `pip install` 时把项目根塞进 **`sys.path`** 再调 **`main()`**；现在用 **`pip install -e .`** 或 **`python -m domain_test`** 即可，该脚本已删除。
+- **`domain_test/`**：Python **包目录**（与 PyPI 发行名 **`domain-test`** 对应）。模块名不能含连字符，故发行名用 **`domain-test`**、import 路径用 **`domain_test`**，这是常见约定（与 **`pip install beautifulsoup4` → `import bs4`** 同类）。
+- **结构**：单包 + 根目录 **`config.yaml`** 示例 + **`README`** / **`LICENSE`** / **CI**，对当前体量足够清晰；若日后多子命令或插件，再考虑迁到 **`src/domain_test/`** 布局。
 
 ## 环境
 
@@ -23,15 +24,27 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-安装后出现命令 **`domain-test`**。未安装为包时：`python -m domain_test -c ./config.yaml`
+安装后出现命令 **`domain-test`**。未安装为包时：`python -m domain_test --config ./config.yaml`
 
 ## 运行
 
 ```bash
 domain-test --help
-domain-test --print-template
-domain-test -c ./config.yaml
+domain-test --template
+domain-test --config ./config.yaml
+# 本机无路由器时：只测 Chrome + Excel（不 SSH、不切 NAT）
+domain-test --config ./local-only.yaml --local-browser
 ```
+
+**`local-only.yaml` 最小示例**（可与内置合并，只覆盖 `urls` 即可）：
+
+```yaml
+urls:
+  - "https://www.example.com"
+  - "https://www.wikipedia.org"
+```
+
+**`--local-browser`**：`--config` 里**只需写 `urls`（及 `browser`/`output`/`access` 等如需）**，`router` / `nat` 可留空；**不校验**路由器与 NAT、**不执行** **`get_lo_ips` / `change_nat`**。Excel 第一列公网 IP 为占位 **`本机(无路由器)`**，其余与正式报告一致。
 
 报告根目录由 YAML 的 **`output.dir`** 控制（默认 **`.`**），其下为 **`run_<时间戳>/`**，内含 **xlsx**、**png**。
 
@@ -66,7 +79,7 @@ twine upload dist/*
 
 6. **私有源**：同样 **`python -m build`** 后 **`twine upload`**，加 **`--repository-url`** 与凭据；使用方 **`pip install --index-url https://.../simple/`** 等。
 
-7. **给同事 / 客户（不发 PyPI）**：对方 **`git clone`** → 建 venv → **`pip install -r requirements.txt`** → **`pip install -e .`**；发去密码脱敏后的 **`config.yaml`** 副本。**wheel 内含 `.py` 源码**；对方自备 **`-c`** 配置。
+7. **给同事 / 客户（不发 PyPI）**：对方 **`git clone`** → 建 venv → **`pip install -r requirements.txt`** → **`pip install -e .`**；发去密码脱敏后的 **`config.yaml`** 副本。**wheel 内含 `.py` 源码**；对方自备 **`--config`** 配置。
 
 ## 仓库卫生
 
@@ -80,9 +93,9 @@ twine upload dist/*
 
 ## 常见问题
 
-- **配置校验失败**：**`-c`** 是否含 **`urls`**（至少一条）、**`router.host` / `user` / `password`**、**`nat.target_src`**。
+- **配置校验失败**：**`--config`** 是否含 **`urls`**（至少一条）、**`router.host` / `user` / `password`**、**`nat.target_src`**。
 - **SSH / NAT 失败**：账号密码、防火墙、**`router.ssh_encoding`**。
-- **Chrome 无法启动**：安装 Chrome，或在 **`-c`** 中设 **`browser.chrome_path`**。
+- **Chrome 无法启动**：安装 Chrome，或在 **`--config`** 中设 **`browser.chrome_path`**。
 - **PyPI 上传失败**：版本是否已存在、token 是否正确、是否先 **`twine check`**。
 
 ## 可选后续

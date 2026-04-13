@@ -1,20 +1,20 @@
 # =============================================================================
-# 内置完整参数骨架（domain-test --print-template 即打印本文件，含全部注释）。
-# 与 -c path/to.yaml 深度合并：-c 中出现的键覆盖本文件；未写的键沿用下列默认值。
-# 须用 -c 补全后方可运行：urls（至少一条）、router.host / user / password、nat.target_src。
+# 当前配置模板，可复制改名为 config.yaml 后使用：domain-test --config path/to/config.yaml
+# config.yaml 必填项：urls、host、user、password、target_src
+# config.yaml 中未写的键沿用下列值；写入的键则覆盖同名键
 # =============================================================================
 
-# 待测 URL：字符串列表；也可改为多行标量，每行一个 URL，# 开头为行注释
+# 待测域名列表：字符串列表；也可改为多行标量，每行一个域名，# 开头为行注释
 urls: []
 
 router:
-  # 路由器 SSH 地址（-c 必填）
+  # 路由器 SSH 地址（--config 必填）
   host: ""
   # SSH 端口
   port: 22
-  # SSH 用户名（-c 必填）
+  # SSH 用户名（--config 必填）
   user: ""
-  # SSH 密码（-c 必填；勿把含真实密码的文件提交 Git）
+  # SSH 密码（--config 必填；勿把含真实密码的文件提交 Git）
   password: ""
   # 公网 loopback 所在接口名，用于列出出口 IP
   lo_interface: lo
@@ -24,13 +24,13 @@ router:
   nat_settle_seconds: 8
 
 nat:
-  # 做 SNAT 的内网源 IP（-c 必填）
+  # 做 SNAT 的内网源 IP（--config 必填）
   target_src: ""
 
 browser:
-  # 本机 Chrome，一般为 chrome
+  # 本机 Chrome
   channel: chrome
-  # Chrome 可执行文件绝对路径；空串表示不设，按系统默认探测
+  # Chrome 可执行文件绝对路径；空串表示按系统默认路径
   chrome_path: ""
   # 是否无痕
   incognito: true
@@ -41,7 +41,7 @@ browser:
   # 传给 Playwright：domcontentloaded / load / networkidle 等
   wait_until: domcontentloaded
   # HTTP 成功时是否仍截全页图
-  screenshot_on_success: false
+  screenshot_on_success: true
   # 视口宽（像素）
   viewport_width: 1280
   # 视口高（像素）
