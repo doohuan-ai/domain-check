@@ -62,6 +62,34 @@ class BrowserConfig:
     viewport_width: int = 1280
     viewport_height: int = 720
     user_agent: str | None = None
+    # 每批并行打开的标签数；0 表示一批内同时打开全部 URL（仅批次之间间隔）
+    tabs_batch_size: int = 0
+    # 相邻两批之间等待毫秒（上一批全部加载结束后，再开下一批）
+    tabs_batch_delay_ms: int = 0
+    # 单次导航（含超时/网络/5xx 等可重试失败）最大尝试次数
+    navigation_max_attempts: int = 3
+    # 重试前等待毫秒（再次 goto 或刷新）
+    navigation_retry_delay_ms: int = 3000
+    # 同一批内各 URL 启动导航的错开间隔（毫秒）；0 表示同时发起。tabs_batch_size 为 0 时仍生效，用于缓和打满目标站
+    tab_stagger_ms: int = 150
+    # 参考 aips-desktop：去掉默认 automation 开关并追加轻量反检测启动参数（不含 --disable-web-security）
+    use_stealth_launch_args: bool = True
+    # 禁用 Chrome 扩展，减少 ERR_BLOCKED_BY_CLIENT（广告拦截扩展等）
+    disable_chrome_extensions: bool = True
+    # 追加传给 Chrome 的命令行（每项一个字符串）
+    extra_chrome_args: list[str] = field(default_factory=list)
+    # 浏览器 locale，空表示不设置（沿用 Playwright 默认）
+    locale: str = ""
+    # IANA 时区，如 Asia/Shanghai；空表示不设置
+    timezone_id: str = ""
+    # 在每个页面注入前清理 WebDriver/Selenium 遗留 window 属性（与 aips setupAntiDetectionScripts 同源思路，无 Canvas 篡改）
+    inject_automation_cleanup_script: bool = True
+    # goto 返回后是否尽量再等 load 事件（对 wait_until=domcontentloaded 的 SPA 有帮助；超时不影响后续）
+    post_goto_try_load_state: bool = True
+    # 等待 load 的超时毫秒（仅当 post_goto_try_load_state 为 true）
+    post_goto_load_state_timeout_ms: int = 30_000
+    # 导航后再固定等待毫秒，给前端渲染/水合时间，再截正文与截图；0 表示不额外休眠
+    post_goto_settle_ms: int = 1500
 
 
 @dataclass
@@ -133,6 +161,31 @@ def _parse_user_agent(browser_dict: dict[str, Any]) -> str | None:
     return None
 
 
+def _parse_extra_chrome_args(browser_dict: dict[str, Any]) -> list[str]:
+    raw = browser_dict.get("extra_chrome_args")
+    if isinstance(raw, list):
+        return [str(x).strip() for x in raw if str(x).strip()]
+    return []
+
+
+def _parse_locale(browser_dict: dict[str, Any]) -> str:
+    raw = browser_dict.get("locale")
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw.strip()
+    return str(raw).strip()
+
+
+def _parse_timezone_id(browser_dict: dict[str, Any]) -> str:
+    raw = browser_dict.get("timezone_id")
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw.strip()
+    return str(raw).strip()
+
+
 def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
     r = d.get("router") or {}
     n = d.get("nat") or {}
@@ -170,6 +223,20 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             viewport_width=int(b.get("viewport_width", 1280)),
             viewport_height=int(b.get("viewport_height", 720)),
             user_agent=_parse_user_agent(b),
+            tabs_batch_size=int(b.get("tabs_batch_size", 0)),
+            tabs_batch_delay_ms=int(b.get("tabs_batch_delay_ms", 0)),
+            navigation_max_attempts=max(1, int(b.get("navigation_max_attempts", 3))),
+            navigation_retry_delay_ms=max(0, int(b.get("navigation_retry_delay_ms", 3000))),
+            tab_stagger_ms=max(0, int(b.get("tab_stagger_ms", 150))),
+            use_stealth_launch_args=bool(b.get("use_stealth_launch_args", True)),
+            disable_chrome_extensions=bool(b.get("disable_chrome_extensions", True)),
+            extra_chrome_args=_parse_extra_chrome_args(b),
+            locale=_parse_locale(b),
+            timezone_id=_parse_timezone_id(b),
+            inject_automation_cleanup_script=bool(b.get("inject_automation_cleanup_script", True)),
+            post_goto_try_load_state=bool(b.get("post_goto_try_load_state", True)),
+            post_goto_load_state_timeout_ms=max(0, int(b.get("post_goto_load_state_timeout_ms", 30_000))),
+            post_goto_settle_ms=max(0, int(b.get("post_goto_settle_ms", 1500))),
         ),
         access=AccessConfig(
             enable_body_keyword_check=bool(a.get("enable_body_keyword_check", False)),

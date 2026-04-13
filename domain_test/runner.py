@@ -10,7 +10,8 @@ from pathlib import Path
 import paramiko
 from playwright.sync_api import Error as PlaywrightError
 
-from domain_test.browser_check import UrlCheckResult, browser_session, check_url_with_page
+from domain_test.browser_check import UrlCheckResult, run_urls_with_async_browser_sync
+from domain_test.cli_ui import RunUI, use_rich_for_stdout
 from domain_test.config import AppConfig, load_config, read_builtin_config_yaml_text, resolve_output_dir, validate_config
 from domain_test.reporting_excel import build_workbook
 from domain_test.router_ssh import change_nat, get_lo_ips
@@ -24,7 +25,9 @@ def _prepare_run_directory(cfg: AppConfig) -> tuple[Path, int]:
     out_root = resolve_output_dir(cfg)
     out_root.mkdir(parents=True, exist_ok=True)
     run_id = int(time.time())
-    run_dir = out_root / f"run_{run_id}"
+    prefix = (cfg.output.excel_prefix or "domain_check").strip() or "domain_check"
+    # 与 Excel 文件名前缀一致，便于识别同一轮输出目录
+    run_dir = out_root / f"{prefix}_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
     return run_dir, run_id
 
@@ -40,38 +43,31 @@ def _write_excel_report(cfg: AppConfig, run_dir: Path, run_id: int, rows: list[t
 _LOCAL_BROWSER_PUB_LABEL = "本机(无路由器)"
 
 
-def run_local_browser_only(cfg: AppConfig) -> Path:
+def run_local_browser_only(cfg: AppConfig, ui: RunUI) -> Path:
     """不 SSH、不切 NAT：只对 urls 跑 Playwright，并写与正式流程相同结构的 Excel。"""
     validate_config(cfg, require_router=False)
 
     run_dir, run_id = _prepare_run_directory(cfg)
     urls = cfg.urls
-    results: list[UrlCheckResult] = []
     pub_ip = _LOCAL_BROWSER_PUB_LABEL
 
-    print(f"\n===== 本机浏览器巡检（跳过路由器）=====")
-    with browser_session(cfg) as context:
-        for idx, url in enumerate(urls, start=1):
-            print(f"  访问: {url}")
-            fname = f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png"
-            shot_path = run_dir / fname
+    ui.header("domain-test", "本机浏览器巡检 · 跳过路由器 / NAT")
+    ui.step(f"运行目录 {run_dir.name} · 待测 URL {len(urls)} 个")
 
-            page = context.new_page()
-            try:
-                res = check_url_with_page(page, url, cfg, shot_path)
-            finally:
-                page.close()
-
-            print(f"  结果: {res.summary} ({res.label})")
-            results.append(res)
+    shot_paths = [run_dir / f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png" for idx in range(1, len(urls) + 1)]
+    results = ui.browser_phase(
+        f"Chrome 并行检测 {len(urls)} 个地址",
+        lambda: run_urls_with_async_browser_sync(cfg, urls, shot_paths),
+    )
+    ui.results_table(urls, results, pub_ip)
 
     rows = [(pub_ip, results)]
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls)
-    print(f"\n完成（本机模式），报告: {xlsx_path}")
+    ui.done(xlsx_path)
     return xlsx_path
 
 
-def run(cfg: AppConfig) -> Path:
+def run(cfg: AppConfig, ui: RunUI) -> Path:
     validate_config(cfg)
 
     ip_list = get_lo_ips(cfg)
@@ -84,30 +80,25 @@ def run(cfg: AppConfig) -> Path:
     rows: list[tuple[str, list[UrlCheckResult]]] = []
     urls = cfg.urls
 
+    ui.header("domain-test", f"多出口巡检 · {len(ip_list)} 个公网 IP × {len(urls)} 个 URL")
+    ui.step(f"运行目录 {run_dir.name}")
+
     for pub_ip in ip_list:
-        print(f"\n===== 测试出口 IP: {pub_ip} =====")
+        ui.rule(f"出口 {pub_ip}")
+        ui.step("SSH 切换 SNAT …")
         change_nat(cfg, pub_ip)
 
-        results: list[UrlCheckResult] = []
-        with browser_session(cfg) as context:
-            for idx, url in enumerate(urls, start=1):
-                print(f"  访问: {url}")
-                fname = f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png"
-                shot_path = run_dir / fname
-
-                page = context.new_page()
-                try:
-                    res = check_url_with_page(page, url, cfg, shot_path)
-                finally:
-                    page.close()
-
-                print(f"  结果: {res.summary} ({res.label})")
-                results.append(res)
+        shot_paths = [run_dir / f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png" for idx in range(1, len(urls) + 1)]
+        results = ui.browser_phase(
+            f"Chrome 并行检测 {len(urls)} 个地址",
+            lambda: run_urls_with_async_browser_sync(cfg, urls, shot_paths),
+        )
+        ui.results_table(urls, results, pub_ip)
 
         rows.append((pub_ip, results))
 
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls)
-    print(f"\n完成，报告: {xlsx_path}")
+    ui.done(xlsx_path)
     return xlsx_path
 
 
@@ -115,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="domain-test",
         description="多出口 IP 网站可达性巡检",
-        usage="%(prog)s [--help] [--config PATH [--local-browser] | --template]",
+        usage="%(prog)s [--help] [--config PATH [--local-browser] [--plain]] | --template",
         add_help=False,
     )
     parser.add_argument(
@@ -128,6 +119,11 @@ def main(argv: list[str] | None = None) -> int:
         "--local-browser",
         action="store_true",
         help="跳过路由器校验与 SSH/NAT，仅本机 Chrome 测 urls 并写 Excel（与 --config 合用）",
+    )
+    parser.add_argument(
+        "--plain",
+        action="store_true",
+        help="关闭 Rich 美化（纯文本）；管道或非 TTY 时默认即纯文本",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
@@ -163,12 +159,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"配置文件不存在: {cfg_path.resolve()}", file=sys.stderr)
         return 1
 
+    rich_on = use_rich_for_stdout(plain_flag=args.plain)
+    ui = RunUI(plain=not rich_on)
+
     try:
         cfg = load_config(cfg_path)
         if args.local_browser:
-            run_local_browser_only(cfg)
+            run_local_browser_only(cfg, ui)
         else:
-            run(cfg)
+            run(cfg, ui)
     except (
         ValueError,
         RuntimeError,
@@ -177,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         paramiko.SSHException,
         PlaywrightError,
     ) as e:
-        print(f"{type(e).__name__}: {e}", file=sys.stderr)
+        ui.error(e)
         return 1
     return 0
 

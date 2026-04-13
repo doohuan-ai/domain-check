@@ -34,7 +34,11 @@ domain-test --template
 domain-test --config ./config.yaml
 # 本机无路由器时：只测 Chrome + Excel（不 SSH、不切 NAT）
 domain-test --config ./local-only.yaml --local-browser
+# 关闭 Rich 终端美化（日志重定向、CI 等）
+domain-test --config ./config.yaml --plain
 ```
+
+终端默认使用 **[Rich](https://github.com/Textualize/rich)** 输出（圆角分区、步骤前缀、表格汇总、旋转状态），风格接近常见「代码助手」CLI；**stdout 不是 TTY**（如管道）时自动纯文本，也可显式 **`--plain`**。
 
 **`local-only.yaml` 最小示例**（可与内置合并，只覆盖 `urls` 即可）：
 
@@ -46,12 +50,27 @@ urls:
 
 **`--local-browser`**：`--config` 里**只需写 `urls`（及 `browser`/`output`/`access` 等如需）**，`router` / `nat` 可留空；**不校验**路由器与 NAT、**不执行** **`get_lo_ips` / `change_nat`**。Excel 第一列公网 IP 为占位 **`本机(无路由器)`**，其余与正式报告一致。
 
-报告根目录由 YAML 的 **`output.dir`** 控制（默认 **`.`**），其下为 **`run_<时间戳>/`**，内含 **xlsx**、**png**。
+报告根目录由 YAML 的 **`output.dir`** 控制（默认 **`.`**），其下为 **`<excel_prefix>_<时间戳>/`**（与 **`output.excel_prefix`** 一致，默认形如 **`domain_check_1776051316/`**），内含 **xlsx**、**png**。
+
+### 浏览器与访问策略
+
+- **单次运行只启动一次浏览器**（每个出口 IP 一轮）：在 **一个 BrowserContext** 内用 **异步 Playwright** 按批并行打开多个 **Page**（多标签），不再每 URL 开关浏览器。
+- **`browser.tabs_batch_size`**：**0** 表示一批内同时跑完全部 URL；设为 **5** 等则每批最多 5 个并行，批与批之间间隔 **`browser.tabs_batch_delay_ms`**。
+- **`browser.tab_stagger_ms`**：同一批内，第 *k* 个 URL 会比第 0 个晚 *k*×该毫秒数再开始 **`goto`**（包括 `tabs_batch_size: 0` 时），用于缓和瞬时并发；设为 **0** 则同批内同时发起导航。
+- **重试**：单 URL 导航失败（超时、网络错误、HTTP 非成功且非「受限」）时，间隔 **`browser.navigation_retry_delay_ms`** 后再次 **`goto`**（含重定向链），最多 **`browser.navigation_max_attempts`** 次；**403/451/正文关键词受限**不重试。
+- **截图**：均为 **视口**（可见区域），非整页长图。
+- **渲染等待**：**`post_goto_try_load_state`**（默认再等 **`load`**）+ **`post_goto_settle_ms`**（默认约 **1.5s**）在导航返回后、正文检测与截图前执行，减轻 SPA 只出现加载动画就关页的问题；仍不够时可加大 settle 或把 **`wait_until`** 设为 **`load`** / **`networkidle`**（后者易因长连接卡住，慎用）。
+- **参考本地项目 aips-desktop（Electron + playwright-extra + stealth）的思路**（实现见 **`domain_test/browser_launch.py`**）：可选去掉默认 **`--enable-automation`**、追加 **`AutomationControlled`** 相关启动参数；可选 **`locale` / `timezone_id`**（与 aips 默认 **zh-CN / Asia/Shanghai** 类似时可配置）；可选注入 **清理 WebDriver/Selenium 遗留 `window` 属性** 的脚本。**未**引入 Node 的 `playwright-extra`、**未**做 Canvas 指纹噪声（避免误伤通用巡检）。可用 **`browser.use_stealth_launch_args`**、**`inject_automation_cleanup_script`** 等关闭。
 
 ### Excel 版式
 
 - **纵向**：每个待测 URL **一行**，列为 **`公网IP` / `URL` / `结果` / `截图`**（同一公网 IP 会重复多行）。
-- **截图**：嵌入高度固定为 **`output.embed_screenshot_max_height`**（默认 **180** 像素），宽度按原图比例由 **Pillow** 读取尺寸后计算，避免横向拉伸变形；有截图时 **行高**按 **96 dpi** 换算为 Excel **磅**（约 **180px → 135pt**），与图高对齐。无截图行使用 **`output.data_row_height`**（磅，默认约 **24**）。
+- **表头**：深蓝底白字、居中、底边加粗；**冻结首行**；**自动筛选**。
+- **配色**：**`结果`** 与 **`截图`** 列同底色（正常绿 / 受限黄 / 失败红）；**`公网IP`/`URL`** 为浅灰底以便区分。
+- **对齐**：**`公网IP`/`URL`/`结果`** 文字**垂直居中**（URL/结果可换行）；截图列居中。
+- **截图**：固定高度 **`output.embed_screenshot_max_height`**，宽按比例；单元格内 **锚点居中** 并留边距；行高含上下留白。
+- **边框**：全表细线网格。
+- 无截图行：**`output.data_row_height`**（磅）。
 
 ## 输出与判定（简要）
 
@@ -90,8 +109,8 @@ twine upload dist/*
 
 | 建议 | 说明 |
 |------|------|
-| **不要提交** | 含真实密码的 **`config.yaml`** 副本、业务产生的 **`run_*`**、大 xlsx |
-| **可删** | **`build/`**、**`dist/`**、**`*.egg-info/`**（会再生）、本地 **`run_*`** |
+| **不要提交** | 含真实密码的 **`config.yaml`** 副本、业务产生的 **`domain_check_*`** 等输出目录、大 xlsx |
+| **可删** | **`build/`**、**`dist/`**、**`*.egg-info/`**（会再生）、本地 **`domain_check_*`** 输出目录 |
 | **应提交** | **`domain_test/`**、**`pyproject.toml`**、**`README.md`**、**`LICENSE`**、**`.github/workflows/`** |
 
 打包时请确认 **`pyproject.toml`** 里 **`[tool.setuptools.package-data]`** 包含 **`domain_test/builtin_config.yaml`**，否则安装后无法加载内置默认。

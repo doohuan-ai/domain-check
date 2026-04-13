@@ -9,6 +9,10 @@ urls: [
     "https://app.navosagent.ai",
     "https://code.visualstudio.com",
     "https://youmind.com",
+    "https://x.com",
+    "https://yuid.com",
+    "https://example.com",
+    "https://Weprovideawebserviceontheexampledomainhoststoprovidebasicinformation.com"
 ]
 
 router:
@@ -31,10 +35,27 @@ browser:
   incognito: true
   headless: false
   goto_timeout_ms: 60000
+  # SPA 多时可改为 load；仍建议配合 post_goto_settle_ms
   wait_until: domcontentloaded
   screenshot_on_success: true
+  post_goto_try_load_state: true
+  post_goto_settle_ms: 2000
   viewport_width: 1280
   viewport_height: 720
+  # 每批并行标签数：0 表示一批内同时打开全部 URL；>0 则每批最多该数量，批与批之间见 tabs_batch_delay_ms
+  tabs_batch_size: 0
+  # 上一批全部结束后，延迟多少毫秒再启动下一批（仅当 URL 总数需多批时有效）
+  tabs_batch_delay_ms: 0
+  # 单 URL 导航失败（超时、网络、非 2xx 等，不含已判「受限」）时最多尝试次数
+  navigation_max_attempts: 3
+  # 重试前等待毫秒（再次 goto，重定向由 Playwright 自动跟随）
+  navigation_retry_delay_ms: 3000
+  # 同批内各 URL 错开启动导航的间隔（毫秒）；0=同时发起。一批含全部 URL 时建议保留小值防打满站点
+  tab_stagger_ms: 150
+  # locale: "zh-CN"
+  # timezone_id: "Asia/Shanghai"
+  # use_stealth_launch_args: true
+  # inject_automation_cleanup_script: true
   # user_agent: "Mozilla/5.0 ..."
 
 access:

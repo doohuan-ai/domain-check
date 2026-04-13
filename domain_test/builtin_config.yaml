@@ -40,12 +40,39 @@ browser:
   goto_timeout_ms: 60000
   # 传给 Playwright：domcontentloaded / load / networkidle 等
   wait_until: domcontentloaded
-  # HTTP 成功时是否仍截全页图
+  # HTTP 成功时是否截图（仅浏览器视口可见区域，非整页滚动）
   screenshot_on_success: true
   # 视口宽（像素）
   viewport_width: 1280
   # 视口高（像素）
   viewport_height: 720
+  # 每批并行标签数：0 表示一批内同时打开全部 URL；>0 则每批最多该数量，批与批之间见 tabs_batch_delay_ms
+  tabs_batch_size: 0
+  # 上一批全部结束后，延迟多少毫秒再启动下一批（仅当 URL 总数需多批时有效）
+  tabs_batch_delay_ms: 0
+  # 单 URL 导航失败（超时、网络、非 2xx 等，不含已判「受限」）时最多尝试次数
+  navigation_max_attempts: 3
+  # 重试前等待毫秒（再次 goto，重定向由 Playwright 自动跟随）
+  navigation_retry_delay_ms: 3000
+  # 同一批内：第 k 个 URL 比第 0 个晚 k×本值（毫秒）再开始 goto；tabs_batch_size 为 0 时仍生效，避免瞬间打满目标站。0 表示不错开
+  tab_stagger_ms: 150
+  # 参考 aips-desktop BrowserManager：去掉 --enable-automation 并追加轻量反自动化参数（非 Node stealth 插件）
+  use_stealth_launch_args: true
+  # 禁用扩展，减轻 ERR_BLOCKED_BY_CLIENT（本机广告拦截等）
+  disable_chrome_extensions: true
+  # 追加 Chrome 命令行，例如 [ "--proxy-server=..." ]（慎用）
+  extra_chrome_args: []
+  # 浏览器语言，如 zh-CN；空串表示不设置
+  locale: ""
+  # IANA 时区，如 Asia/Shanghai；空串表示不设置
+  timezone_id: ""
+  # 每个页面注入前清理 Selenium/WebDriver 遗留 window 属性（与 aips setupAntiDetectionScripts 同源，不含 Canvas 噪声）
+  inject_automation_cleanup_script: true
+  # goto 后尽量再等浏览器 load 事件（SPA 在 domcontentloaded 后仍可能空白）；超时则继续
+  post_goto_try_load_state: true
+  post_goto_load_state_timeout_ms: 30000
+  # 再等固定毫秒后做正文检测与截图，减轻「只截到转圈」；纯静态站可改小或 0
+  post_goto_settle_ms: 1500
   # 自定义 User-Agent；null 表示使用浏览器默认
   user_agent: null
 
@@ -62,7 +89,7 @@ access:
     - "地区限制"
 
 output:
-  # 报告根目录（相对 cwd）；其下会创建 run_<时间戳>/
+  # 报告根目录（相对 cwd）；其下会创建 <excel_prefix>_<时间戳>/（与 xlsx 同名前缀）
   dir: "."
   # Excel 文件名前缀，实际为 前缀_时间戳.xlsx
   excel_prefix: domain_check
