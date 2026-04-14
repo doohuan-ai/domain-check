@@ -192,9 +192,9 @@ def _run_wizard() -> int:
         input("浏览器是否无头运行？[Y/n]: ").strip().lower() not in ("n", "no")
     )
     batch = IntPrompt.ask(
-        "每批并发标签数（0 = all）",
+        Text.assemble("每批并发标签数 ", ("[0 = all]", "prompt.choices")),
         default=8,
-    ) if c else int(input("每批并发标签数（0 = all）: ").strip() or "8")
+    ) if c else int(input("每批并发标签数 [0 = all]: ").strip() or "8")
     probe_on = Confirm.ask("是否开启出口探针（urllib）？", default=True) if c else (
         input("是否开启出口探针？[Y/n]: ").strip().lower() not in ("n", "no")
     )
