@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
+import re
 import sys
 import threading
 import time
@@ -79,6 +80,21 @@ def _write_excel_report(
 
 # --skip-router 模式：Excel 第一列占位（无公网出口轮换）
 _SKIP_ROUTER_PUB_LABEL = "本机(无路由器)"
+
+
+def _yaml_blank_lines_between_top_keys(yaml_body: str) -> str:
+    """在顶层键（如 urls:/browser:/probe:）之间插入空行，便于人工阅读。"""
+    top = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*:")
+    lines = yaml_body.rstrip("\n").split("\n") if yaml_body else []
+    out: list[str] = []
+    first_top = True
+    for line in lines:
+        if top.match(line):
+            if not first_top and out and out[-1] != "":
+                out.append("")
+            first_top = False
+        out.append(line)
+    return "\n".join(out) + "\n"
 
 
 def _make_json_event_logger(path: Path | None) -> Callable[[dict[str, Any]], None] | None:
@@ -234,10 +250,12 @@ def _run_wizard() -> int:
         cfg["router"] = {"host": host.strip(), "user": user.strip(), "password": pwd, "port": 22}
         cfg["nat"] = {"target_src": target_src.strip()}
 
+    yaml_body = yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False)
+    yaml_body = _yaml_blank_lines_between_top_keys(yaml_body)
     txt = (
         "# 由 domain-check --wizard 自动生成\n"
-        "# 可继续手工补充其它高级参数；未写的参数使用 builtin_config.yaml 默认值\n\n"
-        + yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False)
+        "# 完整键与注释：domain-check --template\n\n"
+        + yaml_body
     )
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -317,7 +335,9 @@ def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
     rows = [(pub_ip, results)]
     probe_by: dict[str, ProbeSummary] = {}
     if cfg.probe.enabled:
+        ui.step("出口探针（urllib）检测中…")
         probe_by[pub_ip] = run_probe_summary(cfg)
+    ui.step("写入 Excel（含嵌入截图）…")
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path
@@ -404,6 +424,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
 
         rows.append((pub_ip, results))
 
+    ui.step("写入 Excel（含嵌入截图）…")
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path

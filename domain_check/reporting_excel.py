@@ -111,7 +111,7 @@ def build_workbook(
 
     # 列宽整体收窄，减少横向滚动成本，优先让用户先看到更多关键列
     ws.column_dimensions["A"].width = 13
-    ws.column_dimensions["B"].width = 32
+    ws.column_dimensions["B"].width = 22
     ws.column_dimensions["C"].width = 28
     ws.column_dimensions["D"].width = 10
     ws.column_dimensions["E"].width = 24
