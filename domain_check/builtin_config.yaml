@@ -1,22 +1,12 @@
 # =============================================================================
-# domain-check 内置默认配置
+# domain-check 默认配置
 #
-# 合并规则：启动时用本文件与「--config 指定的 YAML」做深度合并；用户文件中出现的键
-# 覆盖此处同路径的键；用户未写的键沿用本文件默认值。
-#
-# 命令示例：
-#   domain-check --config ./config.yaml
-#   domain-check --config ./minimal.yaml --skip-router   # 不 SSH / 不切 NAT，只测本机 Chrome
-# 将本文件（含全部注释）打印到 stdout，便于复制为自有模板：
-#   domain-check --template
-#
-# 正式巡检时，用户文件一般至少填写：urls、router.host、router.user、router.password、
+# config.yaml文件一般至少填写：urls、router.host、router.user、router.password、
 # nat.target_src。其余可按需覆盖。
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# urls：待测站点列表。支持 YAML 字符串列表；也可改为「|」多行块标量，每行一个 URL，
-# 以 # 开头的行为注释。与下方 probe.urls（urllib 探针）相互独立。
+# urls：待测站点列表。
 # -----------------------------------------------------------------------------
 urls: []
 
@@ -24,7 +14,7 @@ urls: []
 # router：通过 SSH 连接 MikroTik RouterOS，读取 loopback 公网 IP、执行 SNAT 切换。
 # -----------------------------------------------------------------------------
 router:
-  # SSH 主机名或 IP（用户配置中必填，除非使用 --skip-router）
+  # SSH 主机名或 IP（必填，除非 --skip-router）
   host: ""
   # SSH 端口（1–65535；启动前由 validate_config_schema 校验）
   port: 22
@@ -50,8 +40,7 @@ nat:
 # run：整轮编排策略（与单次 page 检测逻辑无关）。
 # -----------------------------------------------------------------------------
 run:
-  # SSH/NAT 切换失败时：abort = 立即终止整轮；skip_ip = 跳过该出口，Excel 写「已跳过」
-  # 占位行（不启动浏览器、不跑 urllib 探针），避免半份表被误读。
+  # SSH/NAT 切换失败时：abort = 立即终止整轮；skip_ip = 跳过该出口
   nat_failure_policy: skip_ip
 
 # -----------------------------------------------------------------------------
@@ -64,30 +53,30 @@ logging:
   json_events_filename: events.jsonl
 
 # -----------------------------------------------------------------------------
-# browser：本机 Google Chrome + Playwright；多标签异步巡检、分批与重试参数均在此。
+# browser：本机浏览器多标签异步巡检、分批与重试参数等。
 # -----------------------------------------------------------------------------
 browser:
-  # Playwright channel，本机 Chrome 一般为 chrome
+  # 本机 Chrome 一般为 chrome
   channel: chrome
-  # Chrome 可执行文件绝对路径；空字符串表示由 Playwright 与系统默认路径解析
+  # Chrome 可执行文件绝对路径；空字符串表示系统默认路径
   chrome_path: ""
-  # 启动参数 --incognito
+  # 启动参数 --incognito（隐身模式）
   incognito: true
   # true = 无头（无窗口）；调试可改为 false
   headless: true
   # 单次 page.goto 超时（毫秒）；与 validate_config_schema 上下限一致
   goto_timeout_ms: 60000
-  # Playwright wait_until：commit / domcontentloaded / load / networkidle
+  # 判定页面加载完成时机：commit / domcontentloaded / load / networkidle
   wait_until: load
-  # HTTP 2xx 且规则通过时是否保存视口截图（非整页长图）
+  # 是否保存成功截图
   screenshot_on_success: true
   # 浏览器视口宽度（像素）
   viewport_width: 1280
   # 浏览器视口高度（像素）
   viewport_height: 720
-  # 每批并行标签数：0 = 单批尽量跑满（仍受 max_concurrent_tabs 约束）；>0 则每批最多 N 个
+  # 每批并行标签数：0 = 一次打开所有标签；>0 则每批最多 N 个（仍受 max_concurrent_tabs 约束）
   tabs_batch_size: 0
-  # tabs_batch_size 为 0 时限制单批最大并发页签；0 = 不额外限制；大 URL 列表建议 8–32
+  # tabs_batch_size 为 0 时限制单批最大并发标签；0 = 不额外限制；大 URL 列表建议 8–32
   max_concurrent_tabs: 0
   # 上一批全部结束后，延迟毫秒再开下一批（多批时生效）
   tabs_batch_delay_ms: 0
@@ -134,8 +123,8 @@ browser:
 # access：HTTP 2xx 后的正文扫描（可选）；与「能否打开页面」分层判定。
 # -----------------------------------------------------------------------------
 access:
-  # true 时扫描正文是否命中 block_keywords（易误判，按需开启）
-  enable_body_keyword_check: false
+  # 扫描正文是否命中 block_keywords
+  enable_body_keyword_check: true
   # 参与扫描的正文最大字符数
   body_text_max_chars: 20000
   block_keywords:
@@ -143,7 +132,7 @@ access:
     - "forbidden"
     - "not available in your region"
     - "地区限制"
-  # 命中则标为验证墙 challenge（不尝试绕过验证码）
+  # 命中则标为验证墙 challenge
   captcha_keywords:
     - "slide to verify"
     - "please slide"
@@ -154,21 +143,21 @@ access:
     - "安全验证"
 
 # -----------------------------------------------------------------------------
-# probe：切换 NAT 成功后、打开浏览器前，用 urllib 对下列 URL 发 GET；结果写入 Excel
-# 探针（urllib）与 urls 的浏览器检测结果分列，避免语义混淆。
-# enabled 为 true 时必须在 urls 列表中至少配置一条探针地址（启动前校验）。
+# probe：切换 NAT 成功后、打开浏览器前，用 urllib 对下列 URL 发 GET；
 # -----------------------------------------------------------------------------
 probe:
-  # 是否启用 urllib 探针（切 NAT 成功后执行）
+  # 是否启用出口探针（切 NAT 成功后执行），默认 false
   enabled: false
   # 单条探针请求超时毫秒
   timeout_ms: 8000
-  # 探针 URL 列表（enabled=true 时至少 1 条）
-  urls: []
+  # 探针 URL 列表
+  urls:
+  - https://www.cloudflare.com/cdn-cgi/trace
+  - https://www.google.com/generate_204
+  - https://www.msftconnecttest.com/connecttest.txt
 
 # -----------------------------------------------------------------------------
-# precheck：对「每条业务 URL」在 page.goto 之前做轻量网络预检（DNS/TCP/PING），结果写入
-# Excel 的「线路健康度」「预检详情」列。它是线路信号，不替代浏览器真实性能与业务判定。
+# precheck：对「每条业务 URL」在 page.goto 之前做轻量网络预检（DNS/TCP/PING）。
 # -----------------------------------------------------------------------------
 precheck:
   # 是否启用 URL 前置预检（DNS/TCP/PING）

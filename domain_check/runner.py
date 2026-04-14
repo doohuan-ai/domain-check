@@ -339,7 +339,7 @@ def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
     if cfg.probe.enabled:
         ui.step("出口探针（urllib）检测中…")
         probe_by[pub_ip] = run_probe_summary(cfg)
-    ui.step("写入 Excel（含嵌入截图）…")
+    ui.step("写入 Excel …")
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path
@@ -426,7 +426,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
 
         rows.append((pub_ip, results))
 
-    ui.step("写入 Excel（含嵌入截图）…")
+    ui.step("写入 Excel …")
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path
