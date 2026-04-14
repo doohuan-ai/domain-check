@@ -22,11 +22,14 @@ from domain_check.browser_check import UrlCheckResult
 
 T = TypeVar("T")
 
-# 偏暗色终端友好、对比度适中（与常见「代码助手」CLI 观感接近）
+# 终端配色约定（尽量贴近常见 CLI 最佳实践）：
+# - 大段正文/标题：不绑死 white/black，用 bold / dim，跟随终端默认前景（深浅色主题都可读）
+# - 语义色（成功/警告/错误）：保留色相，用于短标签与边框，避免大段高饱和背景
+# - 装饰色：accent / muted 用于分隔与次要信息
 _THEME = {
-    "dt.title": "bold white",
+    "dt.title": "bold",
     "dt.sub": "dim",
-    "dt.step": "dim cyan",
+    "dt.step": "dim",
     "dt.ok": "spring_green1",
     "dt.warn": "dark_orange",
     "dt.err": "indian_red",
@@ -36,6 +39,11 @@ _THEME = {
 }
 
 _THEME_OBJ = Theme(_THEME)
+
+
+def themed_console(*, stderr: bool = False) -> Console:
+    """与 RunUI 使用同一 Theme 的 Console（向导等未走 RunUI 的路径应使用本函数）。"""
+    return Console(stderr=stderr, highlight=False, soft_wrap=True, theme=_THEME_OBJ)
 
 
 def _make_console(*, plain: bool, stderr: bool = False) -> Console:
@@ -104,7 +112,7 @@ class RunUI:
         with self.console.status(
             f"[dt.accent]{message}[/]",
             spinner="dots",
-            spinner_style="cyan",
+            spinner_style="dt.accent",
         ):
             return fn()
 
@@ -229,7 +237,7 @@ def print_cli_help(parser: argparse.ArgumentParser, *, file=None) -> None:
     # 上框：主说明与用法更显眼；下框「参数」表整体偏淡
     body: list[Text | str] = [Text(usage_one_line, style="dt.sub")]
     if desc:
-        body.insert(0, Text(desc, style="bold white"))
+        body.insert(0, Text(desc, style="bold"))
         body.insert(1, "")
 
     console.print()

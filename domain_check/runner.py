@@ -14,7 +14,7 @@ from typing import Any, Callable
 import paramiko
 from playwright.sync_api import Error as PlaywrightError
 from rich import box
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.text import Text
@@ -31,6 +31,7 @@ from domain_check.cli_ui import (
     print_cli_missing_command_hint,
     print_cli_parse_error,
     print_simple_runtime_error,
+    themed_console,
     use_rich_for_stdout,
 )
 from domain_check.config import (
@@ -113,13 +114,17 @@ def _collect_urls_interactive(c: Console | None) -> list[str]:
 
 def _run_wizard() -> int:
     rich_on = use_rich_for_stdout()
-    c = Console() if rich_on else None
+    c = themed_console() if rich_on else None
     if c:
         c.print(
             Panel(
-                "[bold]domain-check 新手向导[/bold]\n"
-                "按步骤输入关键参数，自动生成可运行配置。",
-                border_style="cyan",
+                Group(
+                    Text("domain-check 新手向导", style="dt.title"),
+                    Text("按步骤输入关键参数，自动生成可运行配置。", style="dt.sub"),
+                ),
+                border_style="dt.accent",
+                box=box.ROUNDED,
+                padding=(0, 1),
             )
         )
     out_default = "config.wizard.yaml"
@@ -201,7 +206,14 @@ def _run_wizard() -> int:
     }
     if not local_only:
         if c:
-            c.print(Panel("继续输入路由器参数（完整 NAT 流程必填）", border_style="bright_black"))
+            c.print(
+                Panel(
+                    Text("继续输入路由器参数（完整 NAT 流程必填）", style="dt.sub"),
+                    border_style="dt.muted",
+                    box=box.ROUNDED,
+                    padding=(0, 1),
+                )
+            )
         host = Prompt.ask("router.host（路由器地址）") if c else input("router.host: ").strip()
         user = Prompt.ask("router.user（SSH 用户名）") if c else input("router.user: ").strip()
         pwd = Prompt.ask("router.password（SSH 密码）", password=True) if c else getpass.getpass("router.password: ")
@@ -218,12 +230,19 @@ def _run_wizard() -> int:
     out_path.write_text(txt, encoding="utf-8")
 
     if c:
+        cmd = f'domain-check --config "{out_path}"' + (" --local-browser" if local_only else "")
         c.print(
             Panel(
-                f"[bold green]配置已生成[/bold green]\n{out_path.resolve()}\n\n"
-                f"下一步运行：\n[cyan]domain-check --config \"{out_path}\""
-                + (" --local-browser[/cyan]" if local_only else "[/cyan]"),
-                border_style="green",
+                Group(
+                    Text("配置已生成", style="dt.ok"),
+                    Text(str(out_path.resolve()), style="dt.sub"),
+                    Text(""),
+                    Text("下一步运行：", style="dt.accent"),
+                    Text(cmd, style="dt.accent"),
+                ),
+                border_style="dt.ok",
+                box=box.ROUNDED,
+                padding=(0, 1),
             )
         )
     else:
