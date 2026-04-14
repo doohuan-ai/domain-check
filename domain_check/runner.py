@@ -400,7 +400,7 @@ class DomainCheckArgumentParser(argparse.ArgumentParser):
 def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
-        description="RouterOS 多出口 IP 场景下，网站可达性巡检并生成 Excel 报告",
+        description="RouterOS 多出口 IP，网站可达性巡检",
         usage="%(prog)s [--help] [--config PATH [--local-browser]] | --template | --wizard",
         add_help=False,
     )

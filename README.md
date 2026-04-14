@@ -1,6 +1,6 @@
 # domain-check
 
-`domain-check` 用于在 RouterOS 多出口 IP 场景下，批量访问 URL 并生成 Excel 巡检报告。
+"RouterOS 多出口 IP，网站可达性巡检"
 
 ## 快速开始
 
