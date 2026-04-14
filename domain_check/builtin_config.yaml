@@ -77,7 +77,7 @@ browser:
   headless: true
   # 单次 page.goto 超时（毫秒）；与 validate_config_schema 上下限一致
   goto_timeout_ms: 60000
-  # Playwright wait_until：load / domcontentloaded / networkidle / commit
+  # Playwright wait_until：commit / domcontentloaded / load / networkidle
   # 默认用 networkidle（四者里通常最晚），以降低“刚打开就判定”的误差。
   wait_until: networkidle
   # HTTP 2xx 且规则通过时是否保存视口截图（非整页长图）
