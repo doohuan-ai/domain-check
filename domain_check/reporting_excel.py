@@ -82,6 +82,26 @@ def _probe_merged_cell(ps: ProbeSummary) -> str:
     return f"{icon} · {d}"
 
 
+# 与 probe_net._abbrev 一致：U+2026 HORIZONTAL ELLIPSIS
+_ELLIPSIS = "\u2026"
+
+
+def _precheck_detail_for_excel(text: str) -> str:
+    """预检摘要里 `` | `` 分隔多段，在 Excel 中换行便于阅读。"""
+    t = (text or "").strip()
+    if not t:
+        return t
+    return t.replace(" | ", "\n")
+
+
+def _probe_text_for_excel(ps: ProbeSummary) -> str:
+    """探针列在省略号与箭头之间换行，例如 ``…→HTTP`` → ``…`` 换行后 ``→HTTP``。"""
+    raw = _probe_merged_cell(ps)
+    if _ELLIPSIS not in raw:
+        return raw
+    return raw.replace(f"{_ELLIPSIS}→", f"{_ELLIPSIS}\n→")
+
+
 def _px_to_row_height_points(px: float) -> float:
     return px * 72.0 / 96.0
 
@@ -130,8 +150,8 @@ def build_workbook(
     ws.column_dimensions["B"].width = 24
     ws.column_dimensions["C"].width = 24
     ws.column_dimensions["D"].width = 15
-    ws.column_dimensions["E"].width = 24
-    ws.column_dimensions["F"].width = 28
+    ws.column_dimensions["E"].width = 26
+    ws.column_dimensions["F"].width = 30
     ws.column_dimensions["G"].width = shot_col_wch
 
     for col in range(1, 8):
@@ -146,7 +166,7 @@ def build_workbook(
 
     for pub_ip, results in rows:
         ps = probes.get(pub_ip) or ProbeSummary("off", "")
-        probe_text = _probe_merged_cell(ps)
+        probe_text = _probe_text_for_excel(ps)
         for url, res in zip(url_headers, results):
             ws.append(
                 [
@@ -154,7 +174,7 @@ def build_workbook(
                     url,
                     format_cell_status(res),
                     res.line_health,
-                    res.precheck_detail,
+                    _precheck_detail_for_excel(res.precheck_detail),
                     probe_text,
                     "",
                 ]
