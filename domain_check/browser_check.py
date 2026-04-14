@@ -125,6 +125,50 @@ def _match_block_keywords(text: str, keywords: list[str]) -> str | None:
     return None
 
 
+_CAPTCHA_FALLBACK_KEYWORDS = [
+    "prove your humanity",
+    "i'm not a robot",
+    "recaptcha",
+    "hcaptcha",
+    "cf-chl",
+    "attention required",
+]
+
+
+def _captcha_hit_from_text(sample: str, user_keywords: list[str]) -> str | None:
+    """先匹配用户关键词，再匹配内置验证码兜底关键词。"""
+    hit = _match_block_keywords(sample, user_keywords)
+    if hit:
+        return hit
+    return _match_block_keywords(sample, _CAPTCHA_FALLBACK_KEYWORDS)
+
+
+def _sync_captcha_hit(page, cfg: AppConfig) -> str | None:
+    acfg = cfg.access
+    body = _body_text_sample(page, acfg.body_text_max_chars)
+    title = ""
+    try:
+        title = (page.title() or "").lower()
+    except PlaywrightError:
+        pass
+    url = (page.url or "").lower()
+    sample = "\n".join([body, title, url])
+    return _captcha_hit_from_text(sample, acfg.captcha_keywords)
+
+
+async def _async_captcha_hit(page, cfg: AppConfig) -> str | None:
+    acfg = cfg.access
+    body = await _async_body_text_sample(page, acfg.body_text_max_chars)
+    title = ""
+    try:
+        title = (await page.title() or "").lower()
+    except AsyncPlaywrightError:
+        pass
+    url = (page.url or "").lower()
+    sample = "\n".join([body, title, url])
+    return _captcha_hit_from_text(sample, acfg.captcha_keywords)
+
+
 def _shot_sync(page, path: Path | None) -> None:
     if not path:
         return
@@ -270,8 +314,7 @@ def check_url_with_page(page, url: str, cfg: AppConfig, screenshot_path: Path | 
         )
 
     if 200 <= status_code < 300:
-        cap_sample = _body_text_sample(page, acfg.body_text_max_chars)
-        cap_hit = _match_block_keywords(cap_sample, acfg.captcha_keywords)
+        cap_hit = _sync_captcha_hit(page, cfg)
         if cap_hit:
             _shot_sync(page, screenshot_path)
             return UrlCheckResult(
@@ -384,8 +427,7 @@ async def classify_after_goto_async(
         )
 
     if 200 <= status_code < 300:
-        cap_sample = await _async_body_text_sample(page, acfg.body_text_max_chars)
-        cap_hit = _match_block_keywords(cap_sample, acfg.captcha_keywords)
+        cap_hit = await _async_captcha_hit(page, cfg)
         if cap_hit:
             await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
             return UrlCheckResult(

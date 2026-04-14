@@ -69,10 +69,6 @@ def _probe_merged_cell(ps: ProbeSummary) -> str:
     return f"{word} | {d}"
 
 
-# 与 probe_net._abbrev 一致：U+2026 HORIZONTAL ELLIPSIS
-_ELLIPSIS = "\u2026"
-
-
 def _precheck_detail_for_excel(text: str) -> str:
     """预检详情：新版本已为多行 ``项 | 状态 | 耗时``；旧版单行 ``段 | 段`` 仍转为换行。"""
     t = (text or "").strip()
@@ -87,11 +83,9 @@ def _precheck_detail_for_excel(text: str) -> str:
 
 
 def _probe_text_for_excel(ps: ProbeSummary) -> str:
-    """探针列在省略号与箭头之间换行，例如 ``…→HTTP`` → ``…`` 换行后 ``→HTTP``。"""
+    """探针列在 `` | `` 处分行，便于阅读多探针汇总。"""
     raw = _probe_merged_cell(ps)
-    if _ELLIPSIS not in raw:
-        return raw
-    return raw.replace(f"{_ELLIPSIS}→", f"{_ELLIPSIS}\n→")
+    return raw.replace(" | ", "\n")
 
 
 def _px_to_row_height_points(px: float) -> float:
@@ -143,7 +137,7 @@ def build_workbook(
     ws.column_dimensions["C"].width = 24
     ws.column_dimensions["D"].width = 15
     ws.column_dimensions["E"].width = 28
-    ws.column_dimensions["F"].width = 20
+    ws.column_dimensions["F"].width = 24
     ws.column_dimensions["G"].width = shot_col_wch
 
     for col in range(1, 8):
