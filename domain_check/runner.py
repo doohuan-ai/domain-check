@@ -399,7 +399,7 @@ class _RichHelpAction(argparse.Action):
         nargs: int = 0,
         **kwargs: Any,
     ) -> None:
-        kwargs.setdefault("help", "显示帮助并退出")
+        kwargs.setdefault("help", "显示帮助")
         super().__init__(option_strings, dest, nargs=nargs, default=default, **kwargs)
 
     def __call__(self, parser: argparse.ArgumentParser, namespace, values, option_string=None) -> None:
