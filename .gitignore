@@ -1,5 +1,7 @@
 .DS_Store
 .env
+# 本地巡检配置（含敏感信息，勿提交）
+config.yaml
 reports/
 dist/
 build/

@@ -1,0 +1,14 @@
+# 复制本文件为 config.yaml 后按需修改（config.yaml 已在 .gitignore，不会进仓库）。
+# 完整键与注释：domain-check --template
+
+urls:
+  - "https://www.example.com"
+
+router:
+  host: "192.168.1.1"
+  port: 22
+  user: "your_router_user"
+  password: "请填写"
+
+nat:
+  target_src: "192.168.1.100"

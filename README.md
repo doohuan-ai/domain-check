@@ -11,7 +11,8 @@ pip install -e .
 ```
 
 ```bash
-domain-check --template
+cp config.example.yaml config.yaml   # 首次：复制示例后编辑真实凭据
+domain-check --template               # 或导出完整内置模板自行裁剪
 domain-check --wizard
 domain-check --config ./config.yaml
 ```
@@ -21,6 +22,8 @@ domain-check --config ./config.yaml
 ```bash
 domain-check --config ./config.yaml --local-browser
 ```
+
+仓库根目录的 `config.yaml` 不会提交到 Git；请只在本地维护。
 
 ## 必填配置
 
