@@ -13,11 +13,18 @@ from domain_check.config import AppConfig
 
 def _abbrev(url: str, max_len: int = 36) -> str:
     u = url.strip()
+    p = urlparse(u)
+    host = (p.netloc or "").strip()
+    if host:
+        if len(host) > 28:
+            host = host[:28] + "…"
+        # 只要带路径，就显示 host + 省略号，避免某些 URL 显示全串、某些仅缩写不一致
+        if (p.path and p.path != "/") or p.query:
+            return f"{host}…"
+        return host
     if len(u) <= max_len:
         return u
-    p = urlparse(u)
-    host = (p.netloc or u)[:28]
-    return f"{host}…"
+    return u[:28] + "…"
 
 
 @dataclass(frozen=True)
@@ -29,6 +36,7 @@ class ProbeSummary:
 
     state: str
     detail: str
+    profile: str = ""
 
 
 def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
@@ -37,12 +45,13 @@ def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
     """
     p = cfg.probe
     if not p.enabled:
-        return ProbeSummary("off", "")
+        return ProbeSummary("off", "", "")
     if not p.urls:
-        return ProbeSummary("empty", "（已启用但未配置 probe.urls）")
+        return ProbeSummary("empty", "（已启用但未配置 probe.urls）", "")
 
     timeout_s = max(0.5, p.timeout_ms / 1000.0)
     parts: list[str] = []
+    profile_kv: dict[str, str] = {}
     ok_n = 0
     fail_n = 0
     for url in p.urls:
@@ -58,8 +67,17 @@ def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
             )
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:
                 status = getattr(resp, "status", 200) or 200
-                _ = resp.read(16384)
+                body = resp.read(16384)
             ms = int((time.perf_counter() - t0) * 1000)
+            text = body.decode("utf-8", errors="ignore")
+            for line in text.splitlines():
+                if "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip().lower()
+                v = v.strip()
+                if k in {"ip", "loc", "colo", "visit_scheme", "http", "tls"} and v and k not in profile_kv:
+                    profile_kv[k] = v
             parts.append(f"{_abbrev(u)}→HTTP {status} · {ms}ms")
             ok_n += 1
         except HTTPError as e:
@@ -82,4 +100,18 @@ def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
         state = "fail"
     else:
         state = "partial"
-    return ProbeSummary(state, detail)
+    profile_parts: list[str] = []
+    mapping = [
+        ("ip", "出口IP"),
+        ("loc", "地区"),
+        ("colo", "边缘节点"),
+        ("visit_scheme", "访问协议"),
+        ("http", "HTTP版本"),
+        ("tls", "TLS"),
+    ]
+    for k, zh in mapping:
+        v = profile_kv.get(k)
+        if v:
+            profile_parts.append(f"{zh} {v}")
+    profile = " | ".join(profile_parts)
+    return ProbeSummary(state, detail, profile)

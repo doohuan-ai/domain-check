@@ -57,35 +57,52 @@ def _probe_state_label(ps: ProbeSummary) -> str:
 
 
 def _probe_merged_cell(ps: ProbeSummary) -> str:
-    """状态词 + 探针摘要，例如：正常 | www.cloudflare.com…→HTTP 200 · 981ms"""
+    """探针摘要（不再前置“正常/部分失败/失败”文字）。"""
     d = (ps.detail or "").strip()
     if ps.state == "off":
         return "—"
     if ps.state == "empty":
         return d or "—"
-    word = _probe_state_label(ps)
     if not d:
-        return word
-    return f"{word} | {d}"
+        return _probe_state_label(ps)
+    return d
 
 
-def _precheck_detail_for_excel(text: str) -> str:
-    """预检详情：新版本已为多行 ``项 | 状态 | 耗时``；旧版单行 ``段 | 段`` 仍转为换行。"""
+def _with_extra_blank_lines(text: str) -> str:
+    """
+    统一把列内分隔改成「换行 + 空行」：
+    - `` | `` -> 换行
+    - 已有换行也扩展为双倍行距
+    """
     t = (text or "").strip()
     if not t:
         return t
-    if "\n" in t:
-        return t
-    # 旧格式（如 DNS✅ 1ms | TCP:443✅ 2ms），不含段内 ``项 | 状态 | 耗时`` 双竖线风格
-    if " | " in t and " | 正常 | " not in t and " | 失败 | " not in t and " | — | " not in t:
-        return t.replace(" | ", "\n")
-    return t
+    t = t.replace(" | ", "\n").replace("\r\n", "\n")
+    parts = [p for p in t.split("\n") if p]
+    return "\n\n".join(parts)
+
+
+def _precheck_detail_for_excel(text: str) -> str:
+    return _with_extra_blank_lines(text)
 
 
 def _probe_text_for_excel(ps: ProbeSummary) -> str:
-    """探针列在 `` | `` 处分行，便于阅读多探针汇总。"""
+    """探针列在 `` | `` 处分行并增加空行。"""
     raw = _probe_merged_cell(ps)
-    return raw.replace(" | ", "\n")
+    return _with_extra_blank_lines(raw)
+
+
+def _probe_profile_for_excel(ps: ProbeSummary) -> str:
+    """探针链路画像列（出口IP/地区/边缘节点/协议/TLS）。"""
+    p = (ps.profile or "").strip()
+    if not p:
+        return "—"
+    return p
+
+
+def _result_text_for_excel(result: UrlCheckResult) -> str:
+    """结果列把 `` | `` 分隔改为换行并增加空行。"""
+    return _with_extra_blank_lines(format_cell_status(result))
 
 
 def _px_to_row_height_points(px: float) -> float:
@@ -128,7 +145,7 @@ def build_workbook(
     tw_disp, th_disp = _screenshot_display_size_px(cfg, target_h)
     shot_col_wch = _chars_for_screenshot_col(tw_disp)
 
-    headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针", "截图"]
+    headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针", "探针链路画像", "截图"]
     ws.append(headers)
 
     # 列宽整体收窄，减少横向滚动成本，优先让用户先看到更多关键列
@@ -137,10 +154,11 @@ def build_workbook(
     ws.column_dimensions["C"].width = 24
     ws.column_dimensions["D"].width = 15
     ws.column_dimensions["E"].width = 28
-    ws.column_dimensions["F"].width = 24
-    ws.column_dimensions["G"].width = shot_col_wch
+    ws.column_dimensions["F"].width = 50
+    ws.column_dimensions["G"].width = 30
+    ws.column_dimensions["H"].width = shot_col_wch
 
-    for col in range(1, 8):
+    for col in range(1, 9):
         c = ws.cell(row=1, column=col)
         c.fill = HEADER_FILL
         c.font = HEADER_FONT
@@ -153,15 +171,17 @@ def build_workbook(
     for pub_ip, results in rows:
         ps = probes.get(pub_ip) or ProbeSummary("off", "")
         probe_text = _probe_text_for_excel(ps)
+        probe_profile = _probe_profile_for_excel(ps)
         for url, res in zip(url_headers, results):
             ws.append(
                 [
                     pub_ip,
                     url,
-                    format_cell_status(res),
+                    _result_text_for_excel(res),
                     res.line_health,
                     _precheck_detail_for_excel(res.precheck_detail),
                     probe_text,
+                    probe_profile,
                     "",
                 ]
             )
@@ -177,12 +197,14 @@ def build_workbook(
                 (4, DATA_ALIGN_CENTER),
                 (5, DATA_ALIGN_LEFT),
                 (6, DATA_ALIGN_LEFT),
-                (7, DATA_ALIGN_CENTER),
+                (7, DATA_ALIGN_LEFT),
+                (8, DATA_ALIGN_CENTER),
             ):
                 cell = ws.cell(row=row_num, column=col)
                 cell.fill = status_fill
                 cell.alignment = al
                 cell.border = BORDER_THIN
+
 
             sp = res.screenshot_path
             if sp and Path(sp).is_file():
@@ -198,13 +220,13 @@ def build_workbook(
                     img.anchor = TwoCellAnchor(
                         editAs="twoCell",
                         _from=AnchorMarker(
-                            col=6,
+                            col=7,
                             colOff=pixels_to_EMU(_IMAGE_PAD_PX),
                             row=r0,
                             rowOff=pixels_to_EMU(_IMAGE_PAD_PX),
                         ),
                         to=AnchorMarker(
-                            col=6,
+                            col=7,
                             colOff=pixels_to_EMU(_IMAGE_PAD_PX + tw_disp),
                             row=r0,
                             rowOff=pixels_to_EMU(_IMAGE_PAD_PX + th_disp),
@@ -218,6 +240,6 @@ def build_workbook(
 
     ws.freeze_panes = "A2"
     if last_row >= 1:
-        ws.auto_filter.ref = f"A1:G{last_row}"
+        ws.auto_filter.ref = f"A1:H{last_row}"
 
     return wb

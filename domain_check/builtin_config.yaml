@@ -154,7 +154,7 @@ probe:
   urls:
   - https://www.cloudflare.com/cdn-cgi/trace
   - https://www.google.com/generate_204
-  - https://www.msftconnecttest.com/connecttest.txt
+  - http://www.msftconnecttest.com/connecttest.txt
 
 # -----------------------------------------------------------------------------
 # precheck：对「每条业务 URL」在 page.goto 之前做轻量网络预检（DNS/TCP/PING）
