@@ -1,0 +1,25 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/02_random_surfer_x_load_mode.yaml --skip-router
+# 侧重：x.com 等登录墙场景（load 模式 + 随机行为），观察按钮/入口是否被点击。
+
+urls:
+  - "https://x.com"
+  - "https://www.reddit.com"
+
+browser:
+  headless: false
+  wait_until: load
+  tabs_batch_size: 1
+  post_goto_settle_ms: 2200
+  random_surfer_enabled: true
+  random_surfer_budget_ms: 15000
+  random_surfer_max_clicks: 4
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 3
+  random_surfer_mouse_wiggle: true
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t02_random_x_load"

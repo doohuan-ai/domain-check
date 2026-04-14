@@ -1,6 +1,6 @@
 # 调用方法：
-# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/01_random_surfer_baseline.yaml --skip-router
-# 侧重：随机行为基线（有头 + 单标签），先确认功能可稳定运行。
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/01_random_surfer_domcontentloaded_smoke.yaml --skip-router
+# 侧重：随机行为快速冒烟（不用 networkidle，减少卡住/超时重试）。
 
 urls:
   - "https://www.youtube.com"
@@ -8,8 +8,9 @@ urls:
 
 browser:
   headless: false
+  wait_until: domcontentloaded
   tabs_batch_size: 1
-  wait_until: networkidle
+  post_goto_settle_ms: 1200
   random_surfer_enabled: true
   random_surfer_budget_ms: 8000
   random_surfer_max_clicks: 2
@@ -21,4 +22,4 @@ logging:
   json_events_log: true
 
 output:
-  excel_prefix: "t01_random_baseline"
+  excel_prefix: "t01_random_dom_smoke"
