@@ -67,7 +67,7 @@ class LoggingConfig:
 
 @dataclass
 class ProbeConfig:
-    """切换 NAT 后、浏览器跑 URL 前，用 urllib 对若干 URL 发 GET，摘要写入 Excel「出口探针」列。"""
+    """切换 NAT 后、浏览器跑 URL 前，用 urllib 对若干 URL 发 GET，摘要写入 Excel「探针（状态/摘要）」列。"""
     enabled: bool = False
     urls: list[str] = field(default_factory=list)
     timeout_ms: int = 8000

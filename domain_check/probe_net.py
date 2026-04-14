@@ -33,7 +33,7 @@ class ProbeSummary:
 
 def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
     """
-    对 ``cfg.probe.urls`` 依次 GET；返回结构化摘要（用于 Excel「探针状态」与「出口探针」列）。
+    对 ``cfg.probe.urls`` 依次 GET；返回结构化摘要（用于 Excel「探针（状态/摘要）」列）。
     """
     p = cfg.probe
     if not p.enabled:
@@ -42,6 +42,9 @@ def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
         return ProbeSummary("empty", "（已启用但未配置 probe.urls）")
 
     timeout_s = max(0.5, p.timeout_ms / 1000.0)
+    non_empty = [u.strip() for u in p.urls if u.strip()]
+    # 仅 1 个探针 URL 时省略冗长主机前缀（单列展示时更短）
+    compact_host = len(non_empty) <= 1
     parts: list[str] = []
     ok_n = 0
     fail_n = 0
@@ -60,19 +63,31 @@ def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
                 status = getattr(resp, "status", 200) or 200
                 _ = resp.read(16384)
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"{_abbrev(u)}→HTTP{status} {ms}ms")
+            if compact_host:
+                parts.append(f"HTTP {status} · {ms}ms")
+            else:
+                parts.append(f"{_abbrev(u)}→HTTP{status} {ms}ms")
             ok_n += 1
         except HTTPError as e:
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"{_abbrev(u)}→HTTP{e.code} {ms}ms")
+            if compact_host:
+                parts.append(f"HTTP {e.code} · {ms}ms")
+            else:
+                parts.append(f"{_abbrev(u)}→HTTP{e.code} {ms}ms")
             ok_n += 1
         except URLError:
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"{_abbrev(u)}→网络/解析失败 {ms}ms")
+            if compact_host:
+                parts.append(f"网络/解析失败 · {ms}ms")
+            else:
+                parts.append(f"{_abbrev(u)}→网络/解析失败 {ms}ms")
             fail_n += 1
         except Exception as e:
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"{_abbrev(u)}→{type(e).__name__} {ms}ms")
+            if compact_host:
+                parts.append(f"{type(e).__name__} · {ms}ms")
+            else:
+                parts.append(f"{_abbrev(u)}→{type(e).__name__} {ms}ms")
             fail_n += 1
 
     detail = " | ".join(parts)

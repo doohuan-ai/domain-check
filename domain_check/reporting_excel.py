@@ -56,6 +56,19 @@ def _probe_state_label(ps: ProbeSummary) -> str:
     return m.get(ps.state, ps.state)
 
 
+def _probe_merged_cell(ps: ProbeSummary) -> str:
+    """合并原「探针状态 + 出口探针详情」为一列展示。"""
+    label = _probe_state_label(ps)
+    d = (ps.detail or "").strip()
+    if ps.state == "off":
+        return "—"
+    if ps.state == "empty":
+        return d or "—"
+    if not d:
+        return label
+    return f"{label} · {d}"
+
+
 def _px_to_row_height_points(px: float) -> float:
     return px * 72.0 / 96.0
 
@@ -96,20 +109,19 @@ def build_workbook(
     tw_disp, th_disp = _screenshot_display_size_px(cfg, target_h)
     shot_col_wch = _chars_for_screenshot_col(tw_disp)
 
-    headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针状态", "出口探针详情", "截图"]
+    headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针（状态/摘要）", "截图"]
     ws.append(headers)
 
     # 列宽整体收窄，减少横向滚动成本，优先让用户先看到更多关键列
     ws.column_dimensions["A"].width = 13
-    ws.column_dimensions["B"].width = 22
-    ws.column_dimensions["C"].width = 28
-    ws.column_dimensions["D"].width = 10
+    ws.column_dimensions["B"].width = 24
+    ws.column_dimensions["C"].width = 24
+    ws.column_dimensions["D"].width = 15
     ws.column_dimensions["E"].width = 24
-    ws.column_dimensions["F"].width = 11
-    ws.column_dimensions["G"].width = 20
-    ws.column_dimensions["H"].width = shot_col_wch
+    ws.column_dimensions["F"].width = 28
+    ws.column_dimensions["G"].width = shot_col_wch
 
-    for col in range(1, 9):
+    for col in range(1, 8):
         c = ws.cell(row=1, column=col)
         c.fill = HEADER_FILL
         c.font = HEADER_FONT
@@ -121,8 +133,7 @@ def build_workbook(
 
     for pub_ip, results in rows:
         ps = probes.get(pub_ip) or ProbeSummary("off", "")
-        probe_state = _probe_state_label(ps)
-        probe_detail = (ps.detail or "").strip() or "—"
+        probe_text = _probe_merged_cell(ps)
         for url, res in zip(url_headers, results):
             ws.append(
                 [
@@ -131,8 +142,7 @@ def build_workbook(
                     format_cell_status(res),
                     res.line_health,
                     res.precheck_detail,
-                    probe_state,
-                    probe_detail,
+                    probe_text,
                     "",
                 ]
             )
@@ -147,9 +157,8 @@ def build_workbook(
                 (3, DATA_ALIGN_LEFT),
                 (4, DATA_ALIGN_CENTER),
                 (5, DATA_ALIGN_LEFT),
-                (6, DATA_ALIGN_CENTER),
-                (7, DATA_ALIGN_LEFT),
-                (8, DATA_ALIGN_CENTER),
+                (6, DATA_ALIGN_LEFT),
+                (7, DATA_ALIGN_CENTER),
             ):
                 cell = ws.cell(row=row_num, column=col)
                 cell.fill = status_fill
@@ -170,13 +179,13 @@ def build_workbook(
                     img.anchor = TwoCellAnchor(
                         editAs="twoCell",
                         _from=AnchorMarker(
-                            col=7,
+                            col=6,
                             colOff=pixels_to_EMU(_IMAGE_PAD_PX),
                             row=r0,
                             rowOff=pixels_to_EMU(_IMAGE_PAD_PX),
                         ),
                         to=AnchorMarker(
-                            col=7,
+                            col=6,
                             colOff=pixels_to_EMU(_IMAGE_PAD_PX + tw_disp),
                             row=r0,
                             rowOff=pixels_to_EMU(_IMAGE_PAD_PX + th_disp),
@@ -190,6 +199,6 @@ def build_workbook(
 
     ws.freeze_panes = "A2"
     if last_row >= 1:
-        ws.auto_filter.ref = f"A1:H{last_row}"
+        ws.auto_filter.ref = f"A1:G{last_row}"
 
     return wb
