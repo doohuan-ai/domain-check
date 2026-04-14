@@ -133,9 +133,22 @@ def _run_wizard() -> int:
     else:
         out_raw = input(f"输出配置文件路径（默认 {out_default}）: ").strip() or out_default
     out_path = Path(out_raw).expanduser()
+    if out_path.is_dir():
+        out_path = out_path / out_default
+        if c:
+            c.print(
+                Panel(
+                    Text(f"检测到目录输入，已自动使用文件：{out_path}", style="dt.sub"),
+                    border_style="dt.muted",
+                    box=box.ROUNDED,
+                )
+            )
+        else:
+            print(f"检测到目录输入，已自动使用文件：{out_path}")
+
     if out_path.exists():
-        overwrite = Confirm.ask("文件已存在，是否覆盖？", default=False) if c else (
-            input("文件已存在，覆盖吗？[y/N]: ").strip().lower() == "y"
+        overwrite = Confirm.ask(f"文件已存在，是否覆盖？\n{out_path}", default=False) if c else (
+            input(f"文件已存在（{out_path}），覆盖吗？[y/N]: ").strip().lower() == "y"
         )
         if not overwrite:
             if c:
@@ -226,8 +239,16 @@ def _run_wizard() -> int:
         "# 可继续手工补充其它高级参数；未写的参数使用 builtin_config.yaml 默认值\n\n"
         + yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False)
     )
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(txt, encoding="utf-8")
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(txt, encoding="utf-8")
+    except OSError as e:
+        msg = f"写入配置失败：{out_path}\n{type(e).__name__}: {e}"
+        if c:
+            c.print(Panel(Text(msg, style="dt.err"), border_style="dt.err", box=box.ROUNDED))
+        else:
+            print(msg)
+        return 1
 
     if c:
         cmd = f'domain-check --config "{out_path}"' + (" --skip-router" if local_only else "")
@@ -420,7 +441,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
         description="RouterOS 多出口 IP，网站可达性巡检",
-        usage=" --help | --config PATH --skip-router | --template | --wizard",
+        usage="%(prog)s --help | --config PATH [--skip-router] | --template | --wizard",
         add_help=False,
     )
     parser.add_argument(
