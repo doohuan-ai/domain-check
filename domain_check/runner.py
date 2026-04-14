@@ -420,7 +420,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
         description="RouterOS 多出口 IP，网站可达性巡检",
-        usage="%(prog)s --help | --config PATH --skip-router | --template | --wizard",
+        usage=" --help | --config PATH --skip-router | --template | --wizard",
         add_help=False,
     )
     parser.add_argument(
