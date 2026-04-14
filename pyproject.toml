@@ -3,8 +3,7 @@ name = "domain-check"
 version = "0.1.0"
 description = "RouterOS 多出口 IP 网站可达性巡检"
 readme = "README.md"
-# 完整条文见 LICENSE；SPDX 无对应 ID 时用 LicenseRef 指向仓库内自定义许可
-license = "LicenseRef-DomainCheck-1.0"
+license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{ name = "domain-check contributors" }]
