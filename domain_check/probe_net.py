@@ -33,7 +33,7 @@ class ProbeSummary:
 
 def run_probe_summary(cfg: AppConfig) -> ProbeSummary:
     """
-    对 ``cfg.probe.urls`` 依次 GET；返回结构化摘要（用于 Excel「探针（状态/摘要）」列）。
+    对 ``cfg.probe.urls`` 依次 GET；返回结构化摘要（用于 Excel「探针」列）。
     """
     p = cfg.probe
     if not p.enabled:

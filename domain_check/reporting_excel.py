@@ -142,7 +142,7 @@ def build_workbook(
     tw_disp, th_disp = _screenshot_display_size_px(cfg, target_h)
     shot_col_wch = _chars_for_screenshot_col(tw_disp)
 
-    headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针（状态/摘要）", "截图"]
+    headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针", "截图"]
     ws.append(headers)
 
     # 列宽整体收窄，减少横向滚动成本，优先让用户先看到更多关键列
