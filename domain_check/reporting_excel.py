@@ -56,17 +56,30 @@ def _probe_state_label(ps: ProbeSummary) -> str:
     return m.get(ps.state, ps.state)
 
 
+def _probe_emoji(ps: ProbeSummary) -> str:
+    """与原先「探针状态」语义对应的图标，便于扫读。"""
+    return {
+        "ok": "✅",
+        "partial": "⚠️",
+        "fail": "❌",
+        "off": "",
+        "empty": "",
+    }.get(ps.state, "·")
+
+
 def _probe_merged_cell(ps: ProbeSummary) -> str:
-    """合并原「探针状态 + 出口探针详情」为一列展示。"""
-    label = _probe_state_label(ps)
+    """图标（原状态语义）+ 主机缩写与 HTTP/耗时摘要，例如：✅ · www.cloudflare.com…→HTTP 200 · 1387ms"""
     d = (ps.detail or "").strip()
     if ps.state == "off":
         return "—"
     if ps.state == "empty":
         return d or "—"
+    icon = _probe_emoji(ps)
     if not d:
-        return label
-    return f"{label} · {d}"
+        return icon or _probe_state_label(ps)
+    if not icon:
+        return d
+    return f"{icon} · {d}"
 
 
 def _px_to_row_height_points(px: float) -> float:
