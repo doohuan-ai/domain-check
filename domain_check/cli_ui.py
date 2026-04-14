@@ -226,9 +226,10 @@ def print_cli_help(parser: argparse.ArgumentParser, *, file=None) -> None:
     usage_one_line = " ".join(parser.format_usage().strip().split())
     desc = (parser.description or "").strip()
 
-    body: list[Text | str] = [Text(usage_one_line, style="dt.muted")]
+    # 上框：主说明与用法更显眼；下框「参数」表整体偏淡
+    body: list[Text | str] = [Text(usage_one_line, style="dt.sub")]
     if desc:
-        body.insert(0, Text(desc, style="dt.sub"))
+        body.insert(0, Text(desc, style="bold white"))
         body.insert(1, "")
 
     console.print()
@@ -245,19 +246,19 @@ def print_cli_help(parser: argparse.ArgumentParser, *, file=None) -> None:
     table = Table(
         box=box.SIMPLE_HEAD,
         show_header=True,
-        header_style="dt.table_head",
+        header_style="dt.muted",
         border_style="dt.muted",
         pad_edge=False,
     )
-    table.add_column("选项", style="dt.accent", no_wrap=True)
-    table.add_column("说明")
+    table.add_column("选项", style="dt.muted", no_wrap=True)
+    table.add_column("说明", style="dim")
     for action in parser._actions:
         if not action.option_strings:
             continue
         table.add_row(_format_argparse_option_line(action), action.help or "")
     console.print()
     console.print(
-        Panel(table, title="[dt.table_head]参数[/]", border_style="dt.muted", box=box.ROUNDED, padding=(0, 1))
+        Panel(table, title="[dt.muted]参数[/]", border_style="dt.muted", box=box.ROUNDED, padding=(0, 1))
     )
     console.print()
 
