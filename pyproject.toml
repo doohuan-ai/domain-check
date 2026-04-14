@@ -1,7 +1,7 @@
 [project]
 name = "domain-check"
 version = "0.1.0"
-description = "RouterOS 多出口 IP，网站可达性巡检"
+description = "RouterOS 多出口 IP 网站可达性巡检"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

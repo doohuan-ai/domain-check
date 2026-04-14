@@ -290,7 +290,7 @@ def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
         else None
     )
 
-    ui.header("RouterOS 多出口 IP，网站可达性巡检", "本机浏览器巡检 · 跳过路由器 / NAT")
+    ui.header("RouterOS 多出口 IP 网站可达性巡检", "本机浏览器巡检 · 跳过路由器 / NAT")
     ui.step(f"运行目录 {run_dir.name} · 待测 URL {len(urls)} 个")
     if emit:
         ui.step(f"JSON 事件日志: {log_path}")
@@ -440,7 +440,7 @@ class DomainCheckArgumentParser(argparse.ArgumentParser):
 def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
-        description="RouterOS 多出口 IP，网站可达性巡检",
+        description="RouterOS 多出口 IP 网站可达性巡检",
         usage="%(prog)s --help | --config PATH [--skip-router] | --template | --wizard",
         add_help=False,
     )
