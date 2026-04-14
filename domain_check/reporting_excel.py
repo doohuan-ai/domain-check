@@ -56,16 +56,6 @@ def _probe_state_label(ps: ProbeSummary) -> str:
     return m.get(ps.state, ps.state)
 
 
-def _line_health_fill(value: str) -> PatternFill:
-    if value == "健康":
-        return GREEN
-    if value == "一般":
-        return YELLOW
-    if value == "异常":
-        return RED
-    return NEUTRAL_ROW
-
-
 def _px_to_row_height_points(px: float) -> float:
     return px * 72.0 / 96.0
 
@@ -133,13 +123,6 @@ def build_workbook(
         ps = probes.get(pub_ip) or ProbeSummary("off", "")
         probe_state = _probe_state_label(ps)
         probe_detail = (ps.detail or "").strip() or "—"
-        probe_state_fill = (
-            GREEN
-            if ps.state == "ok"
-            else YELLOW
-            if ps.state in ("partial", "fail", "empty")
-            else NEUTRAL_ROW
-        )
         for url, res in zip(url_headers, results):
             ws.append(
                 [
@@ -155,21 +138,21 @@ def build_workbook(
             )
             row_num = ws.max_row
             last_row = row_num
+            # 整行使用与「结果」列一致的状态底色（正常/受限/验证墙/失败/跳过）
             status_fill = _fill_for_result(res)
-            line_fill = _line_health_fill(res.line_health)
 
-            for col, al, fill in (
-                (1, DATA_ALIGN_LEFT, NEUTRAL_ROW),
-                (2, DATA_ALIGN_LEFT, NEUTRAL_ROW),
-                (3, DATA_ALIGN_LEFT, status_fill),
-                (4, DATA_ALIGN_CENTER, line_fill),
-                (5, DATA_ALIGN_LEFT, NEUTRAL_ROW),
-                (6, DATA_ALIGN_CENTER, probe_state_fill),
-                (7, DATA_ALIGN_LEFT, NEUTRAL_ROW),
-                (8, DATA_ALIGN_CENTER, status_fill),
+            for col, al in (
+                (1, DATA_ALIGN_LEFT),
+                (2, DATA_ALIGN_LEFT),
+                (3, DATA_ALIGN_LEFT),
+                (4, DATA_ALIGN_CENTER),
+                (5, DATA_ALIGN_LEFT),
+                (6, DATA_ALIGN_CENTER),
+                (7, DATA_ALIGN_LEFT),
+                (8, DATA_ALIGN_CENTER),
             ):
                 cell = ws.cell(row=row_num, column=col)
-                cell.fill = fill
+                cell.fill = status_fill
                 cell.alignment = al
                 cell.border = BORDER_THIN
 
