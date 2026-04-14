@@ -464,7 +464,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
         description="RouterOS 多出口 IP 网站可达性巡检",
-        usage="%(prog)s --help | --config PATH [--skip-router] | --template | --wizard",
+        usage="%(prog)s --help | --wizard | --template | --config PATH [--skip-router]",
         add_help=False,
     )
     parser.add_argument(
@@ -473,16 +473,11 @@ def main(argv: list[str] | None = None) -> int:
         nargs=0,
         default=argparse.SUPPRESS,
     )
-    parser.add_argument(
-        "--skip-router",
-        action="store_true",
-        help="跳过路由器校验与 SSH/NAT",
-    )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
-        "--config",
-        metavar="PATH",
-        help="YAML 配置文件路径",
+        "--wizard",
+        action="store_true",
+        help="交互式向导",
     )
     g.add_argument(
         "--template",
@@ -490,9 +485,14 @@ def main(argv: list[str] | None = None) -> int:
         help="输出默认配置模板",
     )
     g.add_argument(
-        "--wizard",
+        "--config",
+        metavar="PATH",
+        help="YAML 配置文件路径",
+    )
+    parser.add_argument(
+        "--skip-router",
         action="store_true",
-        help="交互式向导",
+        help="跳过路由器校验与 SSH/NAT",
     )
     args = parser.parse_args(argv)
 
@@ -502,7 +502,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--template/--wizard 不能与 --skip-router 同时使用")
     if not args.template and not args.wizard and args.config is None:
         print_cli_help(parser, file=sys.stderr)
-        print_cli_missing_command_hint("必须指定 --config PATH 或 --template 或 --wizard")
+        print_cli_missing_command_hint("必须指定 --wizard 或 --template 或 --config PATH")
         return 2
 
     if args.template:
