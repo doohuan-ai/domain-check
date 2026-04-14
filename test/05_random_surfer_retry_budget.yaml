@@ -1,0 +1,32 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/05_random_surfer_retry_budget.yaml --skip-router
+# 侧重：随机行为 + 重试 + 截图预算联测，验证长时运行稳定性。
+
+urls:
+  - "https://www.reddit.com"
+  - "https://www.youtube.com"
+  - "https://www.bilibili.com"
+  - "https://www.pinterest.com"
+  - "https://www.quora.com"
+
+browser:
+  headless: false
+  tabs_batch_size: 2
+  navigation_network_max_attempts: 4
+  navigation_network_retry_delay_ms: 2000
+  navigation_content_max_attempts: 2
+  navigation_content_retry_delay_ms: 1800
+  wait_until: networkidle
+  random_surfer_enabled: true
+  random_surfer_budget_ms: 15000
+  random_surfer_max_clicks: 4
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 4
+  random_surfer_mouse_wiggle: true
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t05_random_retry_budget"
+  max_total_screenshot_bytes: 15000000

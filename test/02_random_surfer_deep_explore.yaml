@@ -1,0 +1,25 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/02_random_surfer_deep_explore.yaml --skip-router
+# 侧重：更深随机探索（更长预算 + 更多点击），观察站点动态变化与挑战页触发。
+
+urls:
+  - "https://www.reddit.com"
+  - "https://x.com"
+
+browser:
+  headless: false
+  tabs_batch_size: 1
+  wait_until: networkidle
+  post_goto_settle_ms: 2200
+  random_surfer_enabled: true
+  random_surfer_budget_ms: 18000
+  random_surfer_max_clicks: 5
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 4
+  random_surfer_mouse_wiggle: true
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t02_random_deep"

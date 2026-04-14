@@ -458,7 +458,7 @@ async def classify_after_goto_async(
     if bcfg.random_surfer_enabled:
         try:
             await post_goto_random_surfer(page, cfg)
-        except AsyncPlaywrightError:
+        except Exception:
             pass
 
     shot: str | None = None

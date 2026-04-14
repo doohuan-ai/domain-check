@@ -30,9 +30,11 @@ async def post_goto_random_surfer(page, cfg: AppConfig) -> None:
             if time.monotonic() > deadline:
                 break
             try:
-                await page.mouse.wheel(0, random.randint(120, 520))
+                # 混合上下滚动，模拟更自然的浏览行为
+                dy = random.randint(120, 520) * (1 if random.random() > 0.2 else -1)
+                await page.mouse.wheel(0, dy)
                 await asyncio.sleep(random.uniform(0.12, 0.35))
-            except AsyncPlaywrightError:
+            except Exception:
                 break
 
     vp = page.viewport_size
@@ -45,14 +47,14 @@ async def post_goto_random_surfer(page, cfg: AppConfig) -> None:
                 y = random.randint(40, max(41, vp["height"] - 40))
                 await page.mouse.move(x, y, steps=random.randint(4, 12))
                 await asyncio.sleep(random.uniform(0.04, 0.12))
-            except AsyncPlaywrightError:
+            except Exception:
                 break
 
     clicks = 0
     loc = page.locator("a[href], button, [role='button'], input[type='submit'], input[type='button']")
     try:
         n = await loc.count()
-    except AsyncPlaywrightError:
+    except Exception:
         return
     if n <= 0:
         return
@@ -63,7 +65,8 @@ async def post_goto_random_surfer(page, cfg: AppConfig) -> None:
             break
         item = loc.nth(idx)
         try:
-            if not await item.is_visible(timeout=800):
+            # Playwright Python 的 Locator.is_visible 不接收 timeout 参数。
+            if not await item.is_visible():
                 continue
             href = await item.get_attribute("href")
             if _bad_href(href):
@@ -71,12 +74,15 @@ async def post_goto_random_surfer(page, cfg: AppConfig) -> None:
             box = await item.bounding_box()
             if not box or box.get("width", 0) < 4 or box.get("height", 0) < 4:
                 continue
+            # 先 hover 再点击，尽量贴近真实用户行为。
+            await item.hover(timeout=2000)
+            await asyncio.sleep(random.uniform(0.08, 0.2))
             await item.click(timeout=4000)
             clicks += 1
             await asyncio.sleep(random.uniform(0.25, 0.7))
             try:
                 await page.wait_for_load_state("domcontentloaded", timeout=6000)
-            except AsyncPlaywrightError:
+            except Exception:
                 pass
-        except AsyncPlaywrightError:
+        except Exception:
             continue

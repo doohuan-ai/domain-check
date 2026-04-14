@@ -1,0 +1,24 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/01_random_surfer_baseline.yaml --skip-router
+# 侧重：随机行为基线（有头 + 单标签），先确认功能可稳定运行。
+
+urls:
+  - "https://www.youtube.com"
+  - "https://www.bilibili.com"
+
+browser:
+  headless: false
+  tabs_batch_size: 1
+  wait_until: networkidle
+  random_surfer_enabled: true
+  random_surfer_budget_ms: 8000
+  random_surfer_max_clicks: 2
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 2
+  random_surfer_mouse_wiggle: true
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t01_random_baseline"

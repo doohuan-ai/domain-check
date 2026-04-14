@@ -1,0 +1,24 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/04_random_surfer_scroll_only.yaml --skip-router
+# 侧重：仅滚动与鼠标移动（不点击），排查“点击触发跳转/挑战”干扰。
+
+urls:
+  - "https://www.zhihu.com"
+  - "https://www.csdn.net"
+
+browser:
+  headless: false
+  tabs_batch_size: 1
+  wait_until: networkidle
+  random_surfer_enabled: true
+  random_surfer_budget_ms: 12000
+  random_surfer_max_clicks: 0
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 5
+  random_surfer_mouse_wiggle: true
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t04_random_scroll_only"

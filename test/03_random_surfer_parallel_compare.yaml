@@ -1,0 +1,28 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/03_random_surfer_parallel_compare.yaml --skip-router
+# 侧重：并行标签 + 随机行为组合，验证并发下稳定性。
+
+urls:
+  - "https://www.youtube.com"
+  - "https://www.tiktok.com"
+  - "https://www.instagram.com"
+  - "https://www.facebook.com"
+
+browser:
+  headless: false
+  tabs_batch_size: 2
+  max_concurrent_tabs: 2
+  tab_stagger_ms: 150
+  wait_until: networkidle
+  random_surfer_enabled: true
+  random_surfer_budget_ms: 10000
+  random_surfer_max_clicks: 3
+  random_surfer_scroll: true
+  random_surfer_scroll_passes: 3
+  random_surfer_mouse_wiggle: true
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t03_random_parallel"
