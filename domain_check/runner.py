@@ -487,7 +487,7 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument(
         "--template",
         action="store_true",
-        help="输出完整默认配置",
+        help="输出默认配置模板",
     )
     g.add_argument(
         "--wizard",
