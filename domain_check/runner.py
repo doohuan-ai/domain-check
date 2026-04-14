@@ -191,9 +191,10 @@ def _run_wizard() -> int:
     headless = Confirm.ask("浏览器是否无头运行（headless）？", default=True) if c else (
         input("浏览器是否无头运行？[Y/n]: ").strip().lower() not in ("n", "no")
     )
-    batch = IntPrompt.ask("每批并发标签数 tabs_batch_size", default=8) if c else int(
-        input("每批并发标签数（默认 8）: ").strip() or "8"
-    )
+    batch = IntPrompt.ask(
+        "每批并发标签数 tabs_batch_size（0=单批内并行打开全部 URL；>0 则每批最多 N 个）",
+        default=8,
+    ) if c else int(input("每批并发标签数 tabs_batch_size（0=全部并行；默认 8）: ").strip() or "8")
     probe_on = Confirm.ask("是否开启出口探针（urllib）？", default=True) if c else (
         input("是否开启出口探针？[Y/n]: ").strip().lower() not in ("n", "no")
     )
@@ -208,7 +209,8 @@ def _run_wizard() -> int:
         "urls": urls,
         "browser": {
             "headless": bool(headless),
-            "tabs_batch_size": max(1, int(batch)),
+            # 0 与 builtin 一致：一批内并行全部 URL（仍受 max_concurrent_tabs 约束）
+            "tabs_batch_size": max(0, min(500, int(batch))),
             "goto_timeout_ms": 60000,
             "navigation_network_max_attempts": 3,
             "navigation_content_max_attempts": 1,
