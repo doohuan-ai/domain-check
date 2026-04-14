@@ -23,8 +23,6 @@ domain-check --config ./config.yaml
 domain-check --config ./config.yaml --local-browser
 ```
 
-仓库根目录的 `config.yaml` 不会提交到 Git；请只在本地维护。
-
 ## 必填配置
 
 最少需要这些字段：
