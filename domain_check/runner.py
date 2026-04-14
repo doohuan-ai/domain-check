@@ -401,7 +401,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
         description="RouterOS 多出口 IP，网站可达性巡检",
-        usage="%(prog)s [--help] [--config PATH [--local-browser]] | --template | --wizard",
+        usage="%(prog)s [--help] | [--config PATH [--local-browser]] | --template | --wizard",
         add_help=False,
     )
     parser.add_argument(
@@ -413,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--local-browser",
         action="store_true",
-        help="跳过路由器校验与 SSH/NAT（须与 --config 同用）",
+        help="跳过路由器校验与 SSH/NAT",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
@@ -424,12 +424,12 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument(
         "--template",
         action="store_true",
-        help="输出内置完整默认配置（含注释），供复制为自有模板",
+        help="输出内置完整默认配置",
     )
     g.add_argument(
         "--wizard",
         action="store_true",
-        help="交互式向导，生成可运行 YAML",
+        help="交互式向导",
     )
     args = parser.parse_args(argv)
 

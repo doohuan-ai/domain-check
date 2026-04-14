@@ -243,6 +243,7 @@ def print_cli_help(parser: argparse.ArgumentParser, *, file=None) -> None:
         )
     )
 
+    # 参数表正文：不强制 #fff，沿用终端默认前景色（深浅色主题下都可读；见 README / 讨论）
     table = Table(
         box=box.SIMPLE_HEAD,
         show_header=True,
@@ -250,8 +251,8 @@ def print_cli_help(parser: argparse.ArgumentParser, *, file=None) -> None:
         border_style="dt.muted",
         pad_edge=False,
     )
-    table.add_column("选项", style="dt.muted", no_wrap=True)
-    table.add_column("说明", style="dim")
+    table.add_column("选项", style="bold", no_wrap=True)
+    table.add_column("说明")
     for action in parser._actions:
         if not action.option_strings:
             continue
