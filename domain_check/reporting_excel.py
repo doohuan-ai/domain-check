@@ -9,6 +9,7 @@ from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils.units import pixels_to_EMU
 from domain_check.browser_check import UrlCheckResult, format_cell_status
 from domain_check.config import AppConfig
 from domain_check.probe_net import ProbeSummary
@@ -108,13 +109,14 @@ def build_workbook(
     headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针状态", "出口探针详情", "截图"]
     ws.append(headers)
 
-    ws.column_dimensions["A"].width = 16
-    ws.column_dimensions["B"].width = 50
-    ws.column_dimensions["C"].width = 46
-    ws.column_dimensions["D"].width = 12
-    ws.column_dimensions["E"].width = 40
-    ws.column_dimensions["F"].width = 14
-    ws.column_dimensions["G"].width = 36
+    # 列宽整体收窄，减少横向滚动成本，优先让用户先看到更多关键列
+    ws.column_dimensions["A"].width = 13
+    ws.column_dimensions["B"].width = 32
+    ws.column_dimensions["C"].width = 28
+    ws.column_dimensions["D"].width = 10
+    ws.column_dimensions["E"].width = 24
+    ws.column_dimensions["F"].width = 11
+    ws.column_dimensions["G"].width = 20
     ws.column_dimensions["H"].width = shot_col_wch
 
     for col in range(1, 9):
@@ -180,12 +182,22 @@ def build_workbook(
                     img.height = th_disp
                     h_px_total = th_disp + 2 * _IMAGE_PAD_PX
                     ws.row_dimensions[row_num].height = _px_to_row_height_points(h_px_total)
-                    # twoCell：_from 与 to 不能重合为零面积，否则 Excel 常不显示图；向下跨一行作为锚区
+                    # twoCell：使用像素偏移定义非零锚区，避免零宽/零高导致 Excel 不显示图片
                     r0 = row_num - 1
                     img.anchor = TwoCellAnchor(
                         editAs="twoCell",
-                        _from=AnchorMarker(col=7, colOff=0, row=r0, rowOff=0),
-                        to=AnchorMarker(col=7, colOff=0, row=r0 + 1, rowOff=0),
+                        _from=AnchorMarker(
+                            col=7,
+                            colOff=pixels_to_EMU(_IMAGE_PAD_PX),
+                            row=r0,
+                            rowOff=pixels_to_EMU(_IMAGE_PAD_PX),
+                        ),
+                        to=AnchorMarker(
+                            col=7,
+                            colOff=pixels_to_EMU(_IMAGE_PAD_PX + tw_disp),
+                            row=r0,
+                            rowOff=pixels_to_EMU(_IMAGE_PAD_PX + th_disp),
+                        ),
                     )
                     ws.add_image(img)
                 except (OSError, ValueError, ImportError):

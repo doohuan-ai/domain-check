@@ -11,8 +11,8 @@ pip install -e .
 ```
 
 ```bash
-cp config.example.yaml config.yaml   # 首次：复制示例后编辑真实凭据
-domain-check --template               # 或导出完整内置模板自行裁剪
+cp config.example.yaml config.yaml   # 复制示例后编辑登录凭据
+domain-check --template               # 或导出完整模板自行修改
 domain-check --wizard
 domain-check --config ./config.yaml
 ```
