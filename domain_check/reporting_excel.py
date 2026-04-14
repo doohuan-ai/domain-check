@@ -150,8 +150,8 @@ def build_workbook(
     ws.column_dimensions["B"].width = 24
     ws.column_dimensions["C"].width = 24
     ws.column_dimensions["D"].width = 15
-    ws.column_dimensions["E"].width = 26
-    ws.column_dimensions["F"].width = 30
+    ws.column_dimensions["E"].width = 30
+    ws.column_dimensions["F"].width = 24
     ws.column_dimensions["G"].width = shot_col_wch
 
     for col in range(1, 8):
