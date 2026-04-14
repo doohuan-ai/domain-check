@@ -1,21 +1,72 @@
-MIT License
+Domain-Check License
+Version 1.0
 
-Copyright (c) domain-check contributors
+Copyright (c) domain-check contributors. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+TERMS
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Definitions
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   "Software" means this repository’s source code, binaries, documentation, and
+   any derivative works you create from them.
+
+   "Distribute" means to convey, publish, or make available copies of the Software
+   or a derivative work to third parties, including by offering network access
+   (e.g. SaaS, hosted service, or internal tool used to provide a service to
+   customers) where those third parties can use the Software’s functionality.
+
+   "Commercial Use" means use of the Software in any activity intended for or
+   directed toward commercial advantage or monetary compensation, including
+   without limitation: use as part of a paid product or service; use inside a
+   for-profit organization in production systems that support revenue-generating
+   operations; offering the Software or a substantially similar derivative as a
+   hosted or managed service for a fee or as part of an advertising-supported
+   offering; or sublicensing or redistributing the Software for a fee.
+
+2. Non-commercial use and modification
+
+   Subject to Sections 3–6, you may use, copy, merge, and modify the Software for
+   personal, educational, or bona fide non-profit purposes without charge.
+
+3. Open-source obligation for modifications when distributed
+
+   If you Distribute the Software or any derivative work (including any version
+   you have modified), you must:
+
+   (a) Make the **complete corresponding source code** of the Software and of your
+       modifications publicly available at no charge, under the terms of this
+       same License (this file), in a reasonably prominent location (for example a
+       public version-control repository); and
+
+   (b) Preserve this License and all copyright notices in source and documentation;
+       and
+
+   (c) Clearly describe how third parties can obtain that source code.
+
+   This obligation applies whether or not your use is commercial. Commercial Use
+   remains subject to Section 4 in addition to this Section 3 when applicable.
+
+4. Commercial Use requires authorization
+
+   Any Commercial Use of the Software is **not** permitted under this License
+   unless you have obtained **prior written permission** (a separate commercial
+   license or other express written agreement) from the copyright holder(s).
+
+   To request a commercial license, contact the maintainers through the public
+   project repository (e.g. issues or contact information listed there).
+
+5. No trademark license
+
+   This License does not grant permission to use trade names, trademarks, or
+   service marks of the copyright holders, except as required for reasonable and
+   customary use in describing the origin of the Software.
+
+6. Disclaimer of warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
