@@ -1,0 +1,25 @@
+# 侧重：探针 + 预检联动（DNS/TCP/PING + urllib probe）
+# 场景：区分“网络层问题”还是“浏览器层问题”
+urls:
+  - "https://www.github.com"
+  - "https://pypi.org"
+
+browser:
+  headless: false
+
+probe:
+  enabled: true
+  urls:
+    - "https://www.cloudflare.com/cdn-cgi/trace"
+    - "https://www.google.com/generate_204"
+    - "https://www.msftconnecttest.com/connecttest.txt"
+
+precheck:
+  enabled: true
+  dns: true
+  tcp: true
+  ping: true
+  ping_count: 1
+
+output:
+  excel_prefix: "t03_probe_precheck"

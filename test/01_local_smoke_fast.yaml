@@ -1,0 +1,13 @@
+# 侧重：最快速确认“本机可跑通 + 能出 Excel”
+# 运行方式：domain-check --config ./test/01_local_smoke_fast.yaml --skip-router
+urls:
+  - "https://www.google.com"
+  - "https://www.cloudflare.com"
+
+browser:
+  headless: false
+  tabs_batch_size: 2
+  goto_timeout_ms: 30000
+
+output:
+  excel_prefix: "t01_smoke_fast"
