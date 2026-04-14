@@ -234,17 +234,14 @@ def print_cli_help(parser: argparse.ArgumentParser, *, file=None) -> None:
     usage_one_line = " ".join(parser.format_usage().strip().split())
     desc = (parser.description or "").strip()
 
-    # 上框：主说明与用法更显眼；下框「参数」表整体偏淡
-    body: list[Text | str] = [Text(usage_one_line, style="dt.sub")]
-    if desc:
-        body.insert(0, Text(desc, style="bold"))
-        body.insert(1, "")
+    # 上框：首行显示程序名，标题显示描述
+    body: list[Text | str] = [Text(parser.prog, style="dt.title"), Text(""), Text(usage_one_line, style="dt.sub")]
 
     console.print()
     console.print(
         Panel(
             Group(*body),
-            title=Text.assemble((parser.prog, "dt.title")),
+            title=Text(desc or parser.prog, style="dt.title"),
             border_style="dt.accent",
             box=box.ROUNDED,
             padding=(0, 1),
