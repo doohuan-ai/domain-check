@@ -56,30 +56,17 @@ def _probe_state_label(ps: ProbeSummary) -> str:
     return m.get(ps.state, ps.state)
 
 
-def _probe_emoji(ps: ProbeSummary) -> str:
-    """与原先「探针状态」语义对应的图标，便于扫读。"""
-    return {
-        "ok": "✅",
-        "partial": "⚠️",
-        "fail": "❌",
-        "off": "",
-        "empty": "",
-    }.get(ps.state, "·")
-
-
 def _probe_merged_cell(ps: ProbeSummary) -> str:
-    """图标（原状态语义）+ 主机缩写与 HTTP/耗时摘要，例如：✅ · www.cloudflare.com…→HTTP 200 · 1387ms"""
+    """状态词 + 探针摘要，例如：正常 | www.cloudflare.com…→HTTP 200 · 981ms"""
     d = (ps.detail or "").strip()
     if ps.state == "off":
         return "—"
     if ps.state == "empty":
         return d or "—"
-    icon = _probe_emoji(ps)
+    word = _probe_state_label(ps)
     if not d:
-        return icon or _probe_state_label(ps)
-    if not icon:
-        return d
-    return f"{icon} · {d}"
+        return word
+    return f"{word} | {d}"
 
 
 # 与 probe_net._abbrev 一致：U+2026 HORIZONTAL ELLIPSIS
@@ -87,11 +74,16 @@ _ELLIPSIS = "\u2026"
 
 
 def _precheck_detail_for_excel(text: str) -> str:
-    """预检摘要里 `` | `` 分隔多段，在 Excel 中换行便于阅读。"""
+    """预检详情：新版本已为多行 ``项 | 状态 | 耗时``；旧版单行 ``段 | 段`` 仍转为换行。"""
     t = (text or "").strip()
     if not t:
         return t
-    return t.replace(" | ", "\n")
+    if "\n" in t:
+        return t
+    # 旧格式（如 DNS✅ 1ms | TCP:443✅ 2ms），不含段内 ``项 | 状态 | 耗时`` 双竖线风格
+    if " | " in t and " | 正常 | " not in t and " | 失败 | " not in t and " | — | " not in t:
+        return t.replace(" | ", "\n")
+    return t
 
 
 def _probe_text_for_excel(ps: ProbeSummary) -> str:
@@ -187,10 +179,10 @@ def build_workbook(
             for col, al in (
                 (1, DATA_ALIGN_LEFT),
                 (2, DATA_ALIGN_LEFT),
-                (3, DATA_ALIGN_LEFT),
+                (3, DATA_ALIGN_CENTER),
                 (4, DATA_ALIGN_CENTER),
                 (5, DATA_ALIGN_LEFT),
-                (6, DATA_ALIGN_LEFT),
+                (6, DATA_ALIGN_CENTER),
                 (7, DATA_ALIGN_CENTER),
             ):
                 cell = ws.cell(row=row_num, column=col)

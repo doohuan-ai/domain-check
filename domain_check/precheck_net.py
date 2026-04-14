@@ -51,14 +51,14 @@ def run_url_precheck(url: str, cfg: AppConfig) -> UrlPrecheckSummary:
         try:
             _ = socket.getaddrinfo(host, None)
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"DNS✅ {ms}ms")
+            parts.append(f"DNS | 正常 | {ms}ms")
             pass_n += 1
         except OSError as e:
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"DNS❌ {ms}ms ({e})")
+            parts.append(f"DNS | 失败 | {ms}ms ({e})")
             fail_n += 1
     else:
-        parts.append("DNS-")
+        parts.append("DNS | — | —")
 
     if pc.tcp:
         t0 = time.perf_counter()
@@ -66,14 +66,14 @@ def run_url_precheck(url: str, cfg: AppConfig) -> UrlPrecheckSummary:
             with socket.create_connection((host, port), timeout=timeout_s):
                 pass
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"TCP:{port}✅ {ms}ms")
+            parts.append(f"TCP:{port} | 正常 | {ms}ms")
             pass_n += 1
         except OSError as e:
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"TCP:{port}❌ {ms}ms ({e})")
+            parts.append(f"TCP:{port} | 失败 | {ms}ms ({e})")
             fail_n += 1
     else:
-        parts.append("TCP-")
+        parts.append(f"TCP:{port} | — | —")
 
     if pc.ping:
         t0 = time.perf_counter()
@@ -88,21 +88,22 @@ def run_url_precheck(url: str, cfg: AppConfig) -> UrlPrecheckSummary:
             )
             ms = int((time.perf_counter() - t0) * 1000)
             if sp.returncode == 0:
-                parts.append(f"PING✅ {ms}ms")
+                parts.append(f"PING | 正常 | {ms}ms")
                 pass_n += 1
             else:
-                parts.append(f"PING❌ {ms}ms")
+                parts.append(f"PING | 失败 | {ms}ms")
                 fail_n += 1
         except Exception as e:
             ms = int((time.perf_counter() - t0) * 1000)
-            parts.append(f"PING❌ {ms}ms ({type(e).__name__})")
+            parts.append(f"PING | 失败 | {ms}ms ({type(e).__name__})")
             fail_n += 1
     else:
-        parts.append("PING-")
+        parts.append("PING | — | —")
 
+    detail = "\n".join(parts)
     if fail_n == 0 and pass_n > 0:
-        return UrlPrecheckSummary("ok", "健康", " | ".join(parts))
+        return UrlPrecheckSummary("ok", "健康", detail)
     if pass_n > 0 and fail_n > 0:
-        return UrlPrecheckSummary("partial", "一般", " | ".join(parts))
-    return UrlPrecheckSummary("fail", "异常", " | ".join(parts))
+        return UrlPrecheckSummary("partial", "一般", detail)
+    return UrlPrecheckSummary("fail", "异常", detail)
 
