@@ -97,7 +97,7 @@ def _probe_profile_for_excel(ps: ProbeSummary) -> str:
     p = (ps.profile or "").strip()
     if not p:
         return "—"
-    return p
+    return p.replace(" | ", "\n")
 
 
 def _result_text_for_excel(result: UrlCheckResult) -> str:
