@@ -1,0 +1,28 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/02_intranet_headed_debug.yaml
+# 侧重：有头调试 + 串行执行，便于观察每个页面行为
+
+urls:
+  - "https://x.com"
+  - "https://www.reddit.com"
+
+router:
+  host: "192.168.11.254"
+  port: 22
+  user: "replace_me"
+  password: "replace_me"
+
+nat:
+  target_src: "192.168.11.115"
+
+browser:
+  headless: false
+  tabs_batch_size: 1
+  wait_until: load
+  post_goto_settle_ms: 2500
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t02_intranet_headed"

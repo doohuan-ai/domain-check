@@ -132,13 +132,15 @@ class BrowserConfig:
     post_goto_load_state_timeout_ms: int = 30_000
     # 导航后再固定等待毫秒，给前端渲染/水合时间，再截正文与截图；0 表示不额外休眠
     post_goto_settle_ms: int = 1500
-    # 以下：HTTP 2xx 且通过关键词检查后，可选「随机冲浪」再截图（仅异步路径）
+    # 以下：HTTP 2xx 且通过关键词检查后，可选「随机冲浪」操作（仅异步路径）
     random_surfer_enabled: bool = False
     random_surfer_budget_ms: int = 12_000
     random_surfer_max_clicks: int = 3
     random_surfer_scroll: bool = True
     random_surfer_scroll_passes: int = 3
     random_surfer_mouse_wiggle: bool = True
+    # true 时在随机冲浪前先保存一张“落地页”截图，避免点击后跳转/空白覆盖原始画面
+    random_surfer_screenshot_before_actions: bool = True
 
 
 @dataclass
@@ -361,6 +363,9 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
             random_surfer_scroll=bool(b.get("random_surfer_scroll", True)),
             random_surfer_scroll_passes=max(1, int(b.get("random_surfer_scroll_passes", 3))),
             random_surfer_mouse_wiggle=bool(b.get("random_surfer_mouse_wiggle", True)),
+            random_surfer_screenshot_before_actions=bool(
+                b.get("random_surfer_screenshot_before_actions", True)
+            ),
         ),
         access=AccessConfig(
             enable_body_keyword_check=bool(a.get("enable_body_keyword_check", False)),

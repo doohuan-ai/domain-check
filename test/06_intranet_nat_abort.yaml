@@ -1,0 +1,22 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/06_intranet_nat_abort.yaml
+# 侧重：NAT 失败策略为 abort（快速失败）
+
+urls:
+  - "https://www.google.com"
+  - "https://www.youtube.com"
+
+router:
+  host: "192.168.11.254"
+  port: 22
+  user: "replace_me"
+  password: "replace_me"
+
+nat:
+  target_src: "192.168.11.115"
+
+run:
+  nat_failure_policy: abort
+
+output:
+  excel_prefix: "t06_intranet_nat_abort"

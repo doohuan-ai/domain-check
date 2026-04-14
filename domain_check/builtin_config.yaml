@@ -81,7 +81,9 @@ browser:
   wait_until: load
   # HTTP 2xx 且规则通过时是否保存视口截图（非整页长图）
   screenshot_on_success: true
+  # 浏览器视口宽度（像素）
   viewport_width: 1280
+  # 浏览器视口高度（像素）
   viewport_height: 720
   # 每批并行标签数：0 = 单批尽量跑满（仍受 max_concurrent_tabs 约束）；>0 则每批最多 N 个
   tabs_batch_size: 0
@@ -123,6 +125,8 @@ browser:
   random_surfer_scroll: true
   random_surfer_scroll_passes: 3
   random_surfer_mouse_wiggle: true
+  # 随机冲浪前先截一张“落地页”图，避免点击后跳转/空白页覆盖原始画面
+  random_surfer_screenshot_before_actions: true
   # 自定义 UA；null 使用浏览器默认
   user_agent: null
 
@@ -155,8 +159,11 @@ access:
 # enabled 为 true 时必须在 urls 列表中至少配置一条探针地址（启动前校验）。
 # -----------------------------------------------------------------------------
 probe:
+  # 是否启用 urllib 探针（切 NAT 成功后执行）
   enabled: false
+  # 单条探针请求超时毫秒
   timeout_ms: 8000
+  # 探针 URL 列表（enabled=true 时至少 1 条）
   urls: []
 
 # -----------------------------------------------------------------------------
@@ -164,6 +171,7 @@ probe:
 # Excel 的「线路健康度」「预检详情」列。它是线路信号，不替代浏览器真实性能与业务判定。
 # -----------------------------------------------------------------------------
 precheck:
+  # 是否启用 URL 前置预检（DNS/TCP/PING）
   enabled: false
   # 是否做 DNS 解析检查（建议开）
   dns: true
@@ -184,9 +192,13 @@ precheck:
 output:
   # 报告根目录（相对进程 cwd）；其下创建 <excel_prefix>_<unix时间>/ 子目录
   dir: "."
+  # Excel 文件名前缀
   excel_prefix: domain_check
+  # Excel 内嵌截图最大宽度（像素）
   embed_screenshot_max_width: 300
+  # Excel 内嵌截图最大高度（像素）
   embed_screenshot_max_height: 180
+  # 数据行默认行高（point）
   data_row_height: 24
   # 截图累计字节上限；超出后仍检测 URL 但不再写新截图；0 = 不限制
   max_total_screenshot_bytes: 100000000

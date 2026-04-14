@@ -1,0 +1,27 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/04_intranet_probe_multi.yaml
+# 侧重：多探针汇总与可读性
+
+urls:
+  - "https://www.amazon.com"
+  - "https://www.ebay.com"
+
+router:
+  host: "192.168.11.254"
+  port: 22
+  user: "replace_me"
+  password: "replace_me"
+
+nat:
+  target_src: "192.168.11.115"
+
+probe:
+  enabled: true
+  timeout_ms: 9000
+  urls:
+    - "https://www.cloudflare.com/cdn-cgi/trace"
+    - "https://www.google.com/generate_204"
+    - "https://www.msftconnecttest.com/connecttest.txt"
+
+output:
+  excel_prefix: "t04_intranet_probe_multi"

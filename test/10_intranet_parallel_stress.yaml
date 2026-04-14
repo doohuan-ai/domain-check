@@ -1,0 +1,35 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/10_intranet_parallel_stress.yaml
+# 侧重：内网并发压力（多 URL + 分批并行）
+
+urls:
+  - "https://www.google.com"
+  - "https://www.youtube.com"
+  - "https://x.com"
+  - "https://www.reddit.com"
+  - "https://www.instagram.com"
+  - "https://www.facebook.com"
+
+router:
+  host: "192.168.11.254"
+  port: 22
+  user: "replace_me"
+  password: "replace_me"
+
+nat:
+  target_src: "192.168.11.115"
+
+browser:
+  headless: false
+  wait_until: load
+  tabs_batch_size: 3
+  max_concurrent_tabs: 3
+  tab_stagger_ms: 100
+  navigation_network_max_attempts: 3
+  navigation_content_max_attempts: 2
+
+logging:
+  json_events_log: true
+
+output:
+  excel_prefix: "t10_intranet_parallel"

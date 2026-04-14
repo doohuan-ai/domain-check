@@ -1,0 +1,27 @@
+# 调用方法：
+# domain-check --config /Users/REEF/Desktop/apps/domain-check/test/05_intranet_precheck_full.yaml
+# 侧重：DNS/TCP/PING 全预检链路
+
+urls:
+  - "https://www.google.com"
+  - "https://www.baidu.com"
+
+router:
+  host: "192.168.11.254"
+  port: 22
+  user: "replace_me"
+  password: "replace_me"
+
+nat:
+  target_src: "192.168.11.115"
+
+precheck:
+  enabled: true
+  dns: true
+  tcp: true
+  ping: true
+  ping_count: 2
+  timeout_ms: 2000
+
+output:
+  excel_prefix: "t05_intranet_precheck_full"

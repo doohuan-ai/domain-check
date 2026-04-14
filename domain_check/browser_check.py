@@ -455,14 +455,29 @@ async def classify_after_goto_async(
                 screenshot_path=str(screenshot_path) if screenshot_path else None,
             )
 
+    shot: str | None = None
+    if (
+        bcfg.screenshot_on_success
+        and screenshot_path
+        and bcfg.random_surfer_enabled
+        and bcfg.random_surfer_screenshot_before_actions
+    ):
+        if screenshot_budget is None or await screenshot_budget.allow_shot():
+            try:
+                await page.screenshot(path=str(screenshot_path), full_page=False)
+                shot = str(screenshot_path)
+                if screenshot_budget is not None:
+                    await screenshot_budget.record_file(screenshot_path)
+            except AsyncPlaywrightError:
+                shot = None
+
     if bcfg.random_surfer_enabled:
         try:
             await post_goto_random_surfer(page, cfg)
         except Exception:
             pass
 
-    shot: str | None = None
-    if bcfg.screenshot_on_success and screenshot_path:
+    if bcfg.screenshot_on_success and screenshot_path and not shot:
         if screenshot_budget is None or await screenshot_budget.allow_shot():
             try:
                 await page.screenshot(path=str(screenshot_path), full_page=False)
