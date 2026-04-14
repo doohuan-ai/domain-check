@@ -143,7 +143,7 @@ def build_workbook(
     ws.column_dimensions["C"].width = 24
     ws.column_dimensions["D"].width = 15
     ws.column_dimensions["E"].width = 30
-    ws.column_dimensions["F"].width = 24
+    ws.column_dimensions["F"].width = 22
     ws.column_dimensions["G"].width = shot_col_wch
 
     for col in range(1, 8):
@@ -179,10 +179,10 @@ def build_workbook(
             for col, al in (
                 (1, DATA_ALIGN_LEFT),
                 (2, DATA_ALIGN_LEFT),
-                (3, DATA_ALIGN_CENTER),
+                (3, DATA_ALIGN_LEFT),
                 (4, DATA_ALIGN_CENTER),
                 (5, DATA_ALIGN_LEFT),
-                (6, DATA_ALIGN_CENTER),
+                (6, DATA_ALIGN_LEFT),
                 (7, DATA_ALIGN_CENTER),
             ):
                 cell = ws.cell(row=row_num, column=col)
