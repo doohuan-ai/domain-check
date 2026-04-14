@@ -432,7 +432,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--skip-router",
         action="store_true",
-        help="跳过路由器校验与 SSH/NAT（须与 --config 同用）",
+        help="跳过路由器校验与 SSH/NAT",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
