@@ -37,8 +37,6 @@ domain-check --config ./config.yaml --skip-router
 
 This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3).
 
-This is an open-source project developed based on One API (MIT License).
-
 If your organization's policies do not permit the use of AGPLv3-licensed software, or if you wish to avoid the open-source obligations of AGPLv3, please contact us at: reef@doohuan.com
 
 Full text / notice: [LICENSE](LICENSE)
