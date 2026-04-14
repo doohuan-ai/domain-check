@@ -77,8 +77,8 @@ def _write_excel_report(
     return xlsx_path
 
 
-# 仅测浏览器+Excel 时 Excel 第一列占位（无公网出口轮换）
-_LOCAL_BROWSER_PUB_LABEL = "本机(无路由器)"
+# --skip-router 模式：Excel 第一列占位（无公网出口轮换）
+_SKIP_ROUTER_PUB_LABEL = "本机(无路由器)"
 
 
 def _make_json_event_logger(path: Path | None) -> Callable[[dict[str, Any]], None] | None:
@@ -230,7 +230,7 @@ def _run_wizard() -> int:
     out_path.write_text(txt, encoding="utf-8")
 
     if c:
-        cmd = f'domain-check --config "{out_path}"' + (" --local-browser" if local_only else "")
+        cmd = f'domain-check --config "{out_path}"' + (" --skip-router" if local_only else "")
         c.print(
             Panel(
                 Group(
@@ -247,19 +247,19 @@ def _run_wizard() -> int:
         )
     else:
         print(f"配置已生成: {out_path.resolve()}")
-        cmd = f'domain-check --config "{out_path}"' + (" --local-browser" if local_only else "")
+        cmd = f'domain-check --config "{out_path}"' + (" --skip-router" if local_only else "")
         print(f"下一步运行: {cmd}")
     return 0
 
 
-def run_local_browser_only(cfg: AppConfig, ui: RunUI) -> Path:
+def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
     """不 SSH、不切 NAT：只对 urls 跑 Playwright，并写与正式流程相同结构的 Excel。"""
     validate_config_schema(cfg)
     validate_config(cfg, require_router=False)
 
     run_dir, run_id = _prepare_run_directory(cfg)
     urls = cfg.urls
-    pub_ip = _LOCAL_BROWSER_PUB_LABEL
+    pub_ip = _SKIP_ROUTER_PUB_LABEL
 
     log_path = (run_dir / cfg.logging.json_events_filename) if cfg.logging.json_events_log else None
     emit = _make_json_event_logger(log_path)
@@ -275,7 +275,7 @@ def run_local_browser_only(cfg: AppConfig, ui: RunUI) -> Path:
         ui.step(f"JSON 事件日志: {log_path}")
 
     shot_paths = [run_dir / f"ip_{_safe_file_tag(pub_ip)}_url{idx}.png" for idx in range(1, len(urls) + 1)]
-    run_meta = {"run_id": run_id, "round_index": 1, "pub_ip": pub_ip, "mode": "local_browser"}
+    run_meta = {"run_id": run_id, "round_index": 1, "pub_ip": pub_ip, "mode": "skip_router"}
     if emit:
         emit({"phase": "browser_phase_start", **run_meta, "n_urls": len(urls)})
     results = ui.browser_phase(
@@ -420,7 +420,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
         description="RouterOS 多出口 IP，网站可达性巡检",
-        usage="%(prog)s [--help] | [--config PATH [--local-browser]] | --template | --wizard",
+        usage="%(prog)s [--help] | [--config PATH [--skip-router]] | --template | --wizard",
         add_help=False,
     )
     parser.add_argument(
@@ -430,9 +430,9 @@ def main(argv: list[str] | None = None) -> int:
         default=argparse.SUPPRESS,
     )
     parser.add_argument(
-        "--local-browser",
+        "--skip-router",
         action="store_true",
-        help="跳过路由器校验与 SSH/NAT",
+        help="跳过路由器校验与 SSH/NAT（须与 --config 同用）",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
@@ -443,7 +443,7 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument(
         "--template",
         action="store_true",
-        help="输出内置完整默认配置",
+        help="输出完整默认配置",
     )
     g.add_argument(
         "--wizard",
@@ -454,8 +454,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if (args.template or args.wizard) and args.config is not None:
         parser.error("不能同时指定 --template/--wizard 与 --config")
-    if (args.template or args.wizard) and args.local_browser:
-        parser.error("--template/--wizard 不能与 --local-browser 同时使用")
+    if (args.template or args.wizard) and args.skip_router:
+        parser.error("--template/--wizard 不能与 --skip-router 同时使用")
     if not args.template and not args.wizard and args.config is None:
         print_cli_help(parser, file=sys.stderr)
         print_cli_missing_command_hint("必须指定 --config PATH 或 --template 或 --wizard")
@@ -480,8 +480,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         cfg = load_config(cfg_path)
-        if args.local_browser:
-            run_local_browser_only(cfg, ui)
+        if args.skip_router:
+            run_skip_router_only(cfg, ui)
         else:
             run(cfg, ui)
     except (

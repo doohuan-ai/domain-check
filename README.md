@@ -20,7 +20,7 @@ domain-check --config ./config.yaml
 无路由器本机调试：
 
 ```bash
-domain-check --config ./config.yaml --local-browser
+domain-check --config ./config.yaml --skip-router
 ```
 
 ## 必填配置
@@ -33,7 +33,7 @@ domain-check --config ./config.yaml --local-browser
 - `router.password`
 - `nat.target_src`
 
-`--local-browser` 模式下只需 `urls`。
+`--skip-router` 模式下只需 `urls`。
 
 ## 开源协议
 

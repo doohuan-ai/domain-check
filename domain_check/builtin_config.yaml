@@ -6,7 +6,7 @@
 #
 # 命令示例：
 #   domain-check --config ./config.yaml
-#   domain-check --config ./minimal.yaml --local-browser   # 不 SSH / 不切 NAT，只测本机 Chrome
+#   domain-check --config ./minimal.yaml --skip-router   # 不 SSH / 不切 NAT，只测本机 Chrome
 # 将本文件（含全部注释）打印到 stdout，便于复制为自有模板：
 #   domain-check --template
 #
@@ -24,13 +24,13 @@ urls: []
 # router：通过 SSH 连接 MikroTik RouterOS，读取 loopback 公网 IP、执行 SNAT 切换。
 # -----------------------------------------------------------------------------
 router:
-  # SSH 主机名或 IP（用户配置中必填，除非使用 --local-browser）
+  # SSH 主机名或 IP（用户配置中必填，除非使用 --skip-router）
   host: ""
   # SSH 端口（1–65535；启动前由 validate_config_schema 校验）
   port: 22
-  # SSH 登录名（必填，除非 --local-browser）
+  # SSH 登录名（必填，除非 --skip-router）
   user: ""
-  # SSH 密码（必填，除非 --local-browser）
+  # SSH 密码（必填，除非 --skip-router）
   password: ""
   # 公网地址所在接口名，用于 /ip address print 解析出口 IP 列表
   lo_interface: lo

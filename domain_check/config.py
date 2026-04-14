@@ -490,7 +490,7 @@ def validate_config_schema(cfg: AppConfig) -> None:
 def validate_config(cfg: AppConfig, *, require_router: bool = True) -> None:
     """
     require_router=False 时仅校验 urls（及 output 等已由 YAML 合并），
-    供本机仅测 Playwright + Excel（--local-browser）使用。
+    供本机仅测 Playwright + Excel（与命令行 ``--skip-router`` 搭配）使用。
     """
     missing = []
     if require_router:
