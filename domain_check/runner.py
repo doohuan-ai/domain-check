@@ -199,7 +199,7 @@ def _run_wizard() -> int:
         Text.assemble("每批并发标签数 ", ("[0 = all]", "prompt.choices")),
         default=8,
     ) if c else int(input("每批并发标签数 [0 = all]: ").strip() or "8")
-    probe_on = Confirm.ask("是否开启探针（urllib：trace + 看我 IP 等）？", default=True) if c else (
+    probe_on = Confirm.ask("是否开启探针（urllib：trace + IP echo 等）？", default=True) if c else (
         input("是否开启探针？[Y/n]: ").strip().lower() not in ("n", "no")
     )
     precheck_on = Confirm.ask("是否开启 URL 前置预检（DNS/TCP/PING）？", default=True) if c else (

@@ -76,7 +76,7 @@ class ProbeConfig:
     """
     ``enabled``：是否启用探针（总开关）；为 true 时至少一类 URL 列表非空。
     ``urls``：trace/连通类探针；写 ``[]`` 关闭。
-    ``egress_verify_urls``：纯文本「看我 IP」类；写 ``[]`` 关闭。
+    ``egress_verify_urls``：纯文本 IP-echo 类；写 ``[]`` 关闭。
     """
     enabled: bool = False
     urls: list[str] = field(default_factory=list)

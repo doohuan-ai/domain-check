@@ -109,7 +109,7 @@ def _egress_verify_message(
     expected_egress_ip: str | None,
     _cf_trace_ip: str | None,
 ) -> str:
-    """第二套「看我 IP」结果：仅保留关键信息，不追加固定结论段。"""
+    """Second IP-echo result: keep key signals only."""
     if not echo_lines:
         return ""
 
@@ -136,7 +136,7 @@ def _egress_substate(echo_ips: list[str | None]) -> str:
 
 
 def _combine_probe_states(a: str | None, b: str | None) -> str:
-    """合并 trace 类探针子状态与「看我 IP」子状态；任一侧未启用时传 None。"""
+    """合并 trace 子状态与 IP-echo 子状态；任一侧未启用时传 None。"""
     parts = [x for x in (a, b) if x is not None]
     if not parts:
         return "empty"

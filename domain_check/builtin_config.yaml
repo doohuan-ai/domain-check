@@ -146,7 +146,7 @@ access:
 # probe：切换 NAT 成功后、打开浏览器前，用 urllib 发 GET（与业务 urls 列无关）
 # -----------------------------------------------------------------------------
 probe:
-  # 是否启用探针（总开关）；urls=[] 关闭 trace/连通类；egress_verify_urls=[] 关闭「看我 IP」类
+  # 是否启用探针（总开关）；urls=[] 关闭 trace/连通类；egress_verify_urls=[] 关闭 IP-echo 类
   enabled: false
   # 单条探针请求超时毫秒
   timeout_ms: 8000
@@ -155,7 +155,7 @@ probe:
   - https://www.cloudflare.com/cdn-cgi/trace
   - https://www.google.com/generate_204
   - http://www.msftconnecttest.com/connecttest.txt
-  # 纯文本「看我 IP」；切 NAT 后与「公网IP」列对比；写 [] 关闭本类
+  # 纯文本 IP-echo；切 NAT 后与「公网IP」列对比；写 [] 关闭本类
   egress_verify_urls:
   - https://api.ipify.org
   - https://ifconfig.me/ip
