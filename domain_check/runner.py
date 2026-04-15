@@ -195,8 +195,8 @@ def _run_wizard() -> int:
         Text.assemble("每批并发标签数 ", ("[0 = all]", "prompt.choices")),
         default=8,
     ) if c else int(input("每批并发标签数 [0 = all]: ").strip() or "8")
-    probe_on = Confirm.ask("是否开启出口探针（urllib）？", default=True) if c else (
-        input("是否开启出口探针？[Y/n]: ").strip().lower() not in ("n", "no")
+    probe_on = Confirm.ask("是否开启探针（urllib：trace + 看我 IP 等）？", default=True) if c else (
+        input("是否开启探针？[Y/n]: ").strip().lower() not in ("n", "no")
     )
     precheck_on = Confirm.ask("是否开启 URL 前置预检（DNS/TCP/PING）？", default=True) if c else (
         input("是否开启 URL 前置预检？[Y/n]: ").strip().lower() not in ("n", "no")
@@ -337,8 +337,8 @@ def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
     rows = [(pub_ip, results)]
     probe_by: dict[str, ProbeSummary] = {}
     if cfg.probe.enabled:
-        ui.step("出口探针（urllib）检测中…")
-        probe_by[pub_ip] = run_probe_summary(cfg)
+        ui.step("探针（urllib）检测中…")
+        probe_by[pub_ip] = run_probe_summary(cfg, None)
     ui.step("写入 Excel …")
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
@@ -394,7 +394,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
             emit({"phase": "nat_attempt_ok", **run_meta})
 
         if cfg.probe.enabled:
-            ps = run_probe_summary(cfg)
+            ps = run_probe_summary(cfg, pub_ip)
             probe_by[pub_ip] = ps
             if emit:
                 emit(
@@ -403,6 +403,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
                         **run_meta,
                         "probe_state": ps.state,
                         "probe_detail": ps.detail[:500],
+                        "egress_verify": (ps.egress_verify or "")[:800],
                     }
                 )
 

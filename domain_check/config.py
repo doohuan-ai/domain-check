@@ -7,6 +7,12 @@ from typing import Any
 
 import yaml
 
+# 纯文本返回公网 IP 的默认校验 URL（与 Cloudflare trace 等互补，降低单点误判）
+DEFAULT_EGRESS_VERIFY_URLS: tuple[str, ...] = (
+    "https://api.ipify.org",
+    "https://ifconfig.me/ip",
+)
+
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """递归合并字典；override 中的键覆盖 base。"""
@@ -67,10 +73,17 @@ class LoggingConfig:
 
 @dataclass
 class ProbeConfig:
-    """切换 NAT 后、浏览器跑 URL 前，用 urllib 对若干 URL 发 GET，摘要写入 Excel「探针」列。"""
+    """
+    ``enabled``：是否启用探针（总开关）；为 true 时至少一类 URL 列表非空。
+    ``urls``：trace/连通类探针；写 ``[]`` 关闭。
+    ``egress_verify_urls``：纯文本「看我 IP」类；写 ``[]`` 关闭。
+    """
     enabled: bool = False
     urls: list[str] = field(default_factory=list)
     timeout_ms: int = 8000
+    egress_verify_urls: list[str] = field(
+        default_factory=lambda: list(DEFAULT_EGRESS_VERIFY_URLS)
+    )
 
 
 @dataclass
@@ -257,6 +270,14 @@ def _parse_timezone_id(browser_dict: dict[str, Any]) -> str:
     return str(raw).strip()
 
 
+def _parse_egress_verify_urls(raw: Any) -> list[str]:
+    if raw is None:
+        return list(DEFAULT_EGRESS_VERIFY_URLS)
+    if isinstance(raw, list):
+        return [str(u).strip() for u in raw if str(u).strip()]
+    return list(DEFAULT_EGRESS_VERIFY_URLS)
+
+
 def _parse_probe_dict(raw: Any) -> ProbeConfig:
     if not isinstance(raw, dict):
         return ProbeConfig()
@@ -268,6 +289,7 @@ def _parse_probe_dict(raw: Any) -> ProbeConfig:
         enabled=bool(raw.get("enabled", False)),
         urls=urls,
         timeout_ms=max(500, int(raw.get("timeout_ms", 8000))),
+        egress_verify_urls=_parse_egress_verify_urls(raw.get("egress_verify_urls")),
     )
 
 
@@ -474,12 +496,19 @@ def validate_config_schema(cfg: AppConfig) -> None:
         pth = Path(str(cp).strip()).expanduser()
         if not pth.is_file():
             errs.append(f"browser.chrome_path 不是有效文件: {pth}")
-    if cfg.probe.enabled and not cfg.probe.urls:
-        errs.append("probe.enabled 为 true 时请在 probe.urls 中至少配置一个 URL")
+    if cfg.probe.enabled and not cfg.probe.urls and not cfg.probe.egress_verify_urls:
+        errs.append(
+            "probe.enabled 为 true 时，probe.urls 与 probe.egress_verify_urls 须至少一项非空"
+            "（关闭某一类探针请将该列表设为 []）"
+        )
     if len(cfg.urls) > 500:
         errs.append(f"urls 数量过多（>500），当前 {len(cfg.urls)}，请分批运行")
-    if cfg.probe.enabled and len(cfg.probe.urls) > 40:
+    if cfg.probe.enabled and cfg.probe.urls and len(cfg.probe.urls) > 40:
         errs.append(f"probe.urls 过多（>40），当前 {len(cfg.probe.urls)}")
+    if cfg.probe.enabled and len(cfg.probe.egress_verify_urls) > 12:
+        errs.append(
+            f"probe.egress_verify_urls 过多（>12），当前 {len(cfg.probe.egress_verify_urls)}"
+        )
     if cfg.precheck.timeout_ms < 200 or cfg.precheck.timeout_ms > 30_000:
         errs.append(f"precheck.timeout_ms 须在 200–30000；当前: {cfg.precheck.timeout_ms}")
     if cfg.precheck.ping_count < 1 or cfg.precheck.ping_count > 5:

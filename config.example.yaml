@@ -1,14 +1,66 @@
 # 复制本文件为 config.yaml 后按需修改
 # 完整键与注释：domain-check --template
 
+# -----------------------------------------------------------------------------
+# urls：待测站点列表
+# -----------------------------------------------------------------------------
 urls:
   - "https://www.example.com"
 
+# -----------------------------------------------------------------------------
+# router：通过 SSH 连接 MikroTik RouterOS，读取 loopback 公网 IP、执行 SNAT 切换
+# -----------------------------------------------------------------------------
 router:
+  # SSH 主机名或 IP（必填，除非 --skip-router）
   host: "192.168.1.1"
+  # SSH 端口（1–65535；启动前由 validate_config_schema 校验）
   port: 22
-  user: "your_router_user"
-  password: "请填写"
+  # SSH 登录名（必填，除非 --skip-router）
+  user: "your_router_username"
+  # SSH 密码（必填，除非 --skip-router）
+  password: "your_router_password"
 
+# -----------------------------------------------------------------------------
+# nat：与 /ip firewall nat 中匹配 src-address 的规则对应；用于 set to-addresses
+# -----------------------------------------------------------------------------
 nat:
+  # 内网源地址（CPE/LAN 主机在防火墙 NAT 规则里的 src-address，用户配置必填）
   target_src: "192.168.1.100"
+
+# -----------------------------------------------------------------------------
+# browser：本机浏览器多标签异步巡检、分批与重试参数等
+# -----------------------------------------------------------------------------
+browser:
+  # true = 无头（无窗口）；调试可改为 false
+  headless: false
+  # 判定页面加载完成时机：commit / domcontentloaded / load / networkidle
+  wait_until: load
+  # 每批并行标签数：0 = 一次打开所有标签；>0 则每批最多 N 个（仍受 max_concurrent_tabs 约束）
+  tabs_batch_size: 5
+  # 随机冲浪（仅异步路径；默认false）
+  random_surfer_enabled: true
+
+# -----------------------------------------------------------------------------
+# probe：切换 NAT 成功后、打开浏览器前执行（与顶层业务 urls 无关）
+# -----------------------------------------------------------------------------
+probe:
+  # 是否启用探针（总开关）；urls=[] 或 egress_verify_urls=[] 可分别关闭对应探针
+  enabled: true
+  # urls: []
+  # egress_verify_urls: []
+
+# -----------------------------------------------------------------------------
+# precheck：对「每条业务 URL」在 page.goto 之前做轻量网络预检（DNS/TCP/PING）
+# -----------------------------------------------------------------------------
+precheck:
+  # 是否启用 URL 前置预检（DNS/TCP/PING）
+  enabled: false
+  # 是否做 DNS 解析检查（建议开）
+  dns: true
+  # 是否做 TCP 端口连通（建议开）
+  tcp: true
+  # 是否做 ICMP ping（很多网站禁 ping，建议默认关，只作参考）
+  ping: false
+  # ping 发包次数（仅 ping=true 生效）
+  ping_count: 1
+

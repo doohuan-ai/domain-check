@@ -1,4 +1,4 @@
-"""Excel 报告：纵向每 URL 一行、表头与状态列/截图列配色、探针列、截图 TwoCellAnchor 随单元格隐藏。"""
+"""Excel 报告：纵向每 URL 一行；同批次内公网IP/探针/画像/出口校验纵向合并为一块，避免重复刷屏。"""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from openpyxl.utils.units import pixels_to_EMU
 from domain_check.browser_check import UrlCheckResult, format_cell_status
 from domain_check.config import AppConfig
@@ -31,6 +32,8 @@ BORDER_HEADER = Border(left=_THIN, right=_THIN, top=_THIN, bottom=_HEADER_BOTTOM
 
 DATA_ALIGN_LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
 DATA_ALIGN_CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
+# 同一公网 IP 批次内纵向合并的列：内容贴顶，避免跨多行看起来像「居中一块」
+DATA_ALIGN_BATCH_MERGE = Alignment(horizontal="left", vertical="top", wrap_text=True)
 
 _IMAGE_PAD_PX = 8
 
@@ -83,7 +86,20 @@ def _with_extra_blank_lines(text: str) -> str:
 
 
 def _precheck_detail_for_excel(text: str) -> str:
-    return _with_extra_blank_lines(text)
+    """
+    预检详情保留单行内的三段格式：
+    DNS | 正常 | 17ms
+    TCP:443 | 正常 | 23ms
+    仅在条目之间增加空行，便于阅读。
+    """
+    t = (text or "").strip().replace("\r\n", "\n")
+    if not t:
+        return t
+    if "\n" in t:
+        lines = [line.strip() for line in t.split("\n") if line.strip()]
+        return "\n\n".join(lines)
+    # 兼容旧格式：单行用 " | " 串接多个条目时，按条目分行并空一行
+    return t.replace(" | ", "\n\n")
 
 
 def _probe_text_for_excel(ps: ProbeSummary) -> str:
@@ -93,11 +109,25 @@ def _probe_text_for_excel(ps: ProbeSummary) -> str:
 
 
 def _probe_profile_for_excel(ps: ProbeSummary) -> str:
-    """探针链路画像列（出口IP/地区/边缘节点/协议/TLS）。"""
+    """探针链路画像列（来自 probe.urls 的 trace 等响应，英文键名 ip/loc/colo/…）。"""
     p = (ps.profile or "").strip()
     if not p:
         return "—"
     return p.replace(" | ", "\n")
+
+
+def _egress_verify_for_excel(ps: ProbeSummary) -> str:
+    """出口校验：外显 IP 服务 + 与路由器本批对比；并说明与页面请求同源。"""
+    if ps.state == "off":
+        return "—"
+    ev = (ps.egress_verify or "").strip()
+    note = (
+        "说明：「公网IP」= 路由器本批 SNAT 目标；urllib 探针与下方页面同一台电脑、"
+        "同一默认路由、顺序执行，本批各 URL 与截图共用该出口（非逐 URL 换 IP）。"
+    )
+    if not ev:
+        return note
+    return _with_extra_blank_lines(ev) + "\n\n" + note
 
 
 def _result_text_for_excel(result: UrlCheckResult) -> str:
@@ -145,7 +175,17 @@ def build_workbook(
     tw_disp, th_disp = _screenshot_display_size_px(cfg, target_h)
     shot_col_wch = _chars_for_screenshot_col(tw_disp)
 
-    headers = ["公网IP", "URL", "结果", "线路健康度", "预检详情(DNS/TCP/PING)", "探针", "探针链路画像", "截图"]
+    headers = [
+        "公网IP",
+        "URL",
+        "结果",
+        "线路健康度",
+        "预检详情(DNS/TCP/PING)",
+        "探针",
+        "探针链路画像",
+        "出口校验",
+        "截图",
+    ]
     ws.append(headers)
 
     # 列宽整体收窄，减少横向滚动成本，优先让用户先看到更多关键列
@@ -153,12 +193,13 @@ def build_workbook(
     ws.column_dimensions["B"].width = 24
     ws.column_dimensions["C"].width = 24
     ws.column_dimensions["D"].width = 15
-    ws.column_dimensions["E"].width = 28
-    ws.column_dimensions["F"].width = 50
-    ws.column_dimensions["G"].width = 30
-    ws.column_dimensions["H"].width = shot_col_wch
+    ws.column_dimensions["E"].width = 25
+    ws.column_dimensions["F"].width = 40
+    ws.column_dimensions["G"].width = 20
+    ws.column_dimensions["H"].width = 32
+    ws.column_dimensions["I"].width = shot_col_wch
 
-    for col in range(1, 9):
+    for col in range(1, 10):
         c = ws.cell(row=1, column=col)
         c.fill = HEADER_FILL
         c.font = HEADER_FONT
@@ -168,43 +209,52 @@ def build_workbook(
     last_row = 1
     probes = probe_by_pub_ip or {}
 
+    # 与业务 URL 行重复、且同批次内完全相同的列（合并后只在首行展示一份）
+    _BATCH_MERGE_COLS = frozenset({1, 6, 7, 8})
+
     for pub_ip, results in rows:
         ps = probes.get(pub_ip) or ProbeSummary("off", "")
         probe_text = _probe_text_for_excel(ps)
         probe_profile = _probe_profile_for_excel(ps)
-        for url, res in zip(url_headers, results):
+        egress_text = _egress_verify_for_excel(ps)
+        block_start_row = ws.max_row + 1
+        n_block = len(results)
+        merge_batch_meta = n_block > 1
+
+        for i_batch, (url, res) in enumerate(zip(url_headers, results)):
+            status_fill = _fill_for_result(res)
+            meta_fill = NEUTRAL_ROW if merge_batch_meta else status_fill
             ws.append(
                 [
-                    pub_ip,
+                    pub_ip if i_batch == 0 else "",
                     url,
                     _result_text_for_excel(res),
                     res.line_health,
                     _precheck_detail_for_excel(res.precheck_detail),
-                    probe_text,
-                    probe_profile,
+                    probe_text if i_batch == 0 else "",
+                    probe_profile if i_batch == 0 else "",
+                    egress_text if i_batch == 0 else "",
                     "",
                 ]
             )
             row_num = ws.max_row
             last_row = row_num
-            # 整行使用与「结果」列一致的状态底色（正常/受限/验证墙/失败/跳过）
-            status_fill = _fill_for_result(res)
 
-            for col, al in (
-                (1, DATA_ALIGN_LEFT),
-                (2, DATA_ALIGN_LEFT),
-                (3, DATA_ALIGN_LEFT),
-                (4, DATA_ALIGN_CENTER),
-                (5, DATA_ALIGN_LEFT),
-                (6, DATA_ALIGN_LEFT),
-                (7, DATA_ALIGN_LEFT),
-                (8, DATA_ALIGN_CENTER),
-            ):
+            for col in range(1, 10):
                 cell = ws.cell(row=row_num, column=col)
-                cell.fill = status_fill
-                cell.alignment = al
                 cell.border = BORDER_THIN
-
+                if col in _BATCH_MERGE_COLS:
+                    cell.fill = meta_fill
+                    cell.alignment = DATA_ALIGN_BATCH_MERGE if merge_batch_meta else DATA_ALIGN_LEFT
+                elif col == 2 or col == 3 or col == 5:
+                    cell.fill = status_fill
+                    cell.alignment = DATA_ALIGN_LEFT
+                elif col == 4:
+                    cell.fill = status_fill
+                    cell.alignment = DATA_ALIGN_CENTER
+                else:
+                    cell.fill = status_fill
+                    cell.alignment = DATA_ALIGN_CENTER
 
             sp = res.screenshot_path
             if sp and Path(sp).is_file():
@@ -220,13 +270,13 @@ def build_workbook(
                     img.anchor = TwoCellAnchor(
                         editAs="twoCell",
                         _from=AnchorMarker(
-                            col=7,
+                            col=8,
                             colOff=pixels_to_EMU(_IMAGE_PAD_PX),
                             row=r0,
                             rowOff=pixels_to_EMU(_IMAGE_PAD_PX),
                         ),
                         to=AnchorMarker(
-                            col=7,
+                            col=8,
                             colOff=pixels_to_EMU(_IMAGE_PAD_PX + tw_disp),
                             row=r0,
                             rowOff=pixels_to_EMU(_IMAGE_PAD_PX + th_disp),
@@ -238,8 +288,16 @@ def build_workbook(
             else:
                 ws.row_dimensions[row_num].height = float(ocfg.data_row_height)
 
+        block_end_row = ws.max_row
+        if merge_batch_meta and block_end_row > block_start_row:
+            for col in _BATCH_MERGE_COLS:
+                letter = get_column_letter(col)
+                ws.merge_cells(f"{letter}{block_start_row}:{letter}{block_end_row}")
+            for col in _BATCH_MERGE_COLS:
+                ws.cell(row=block_start_row, column=col).alignment = DATA_ALIGN_BATCH_MERGE
+
     ws.freeze_panes = "A2"
     if last_row >= 1:
-        ws.auto_filter.ref = f"A1:H{last_row}"
+        ws.auto_filter.ref = f"A1:I{last_row}"
 
     return wb
