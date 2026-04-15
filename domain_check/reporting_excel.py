@@ -145,28 +145,21 @@ def _chars_for_screenshot_col(tw_px: int) -> float:
     return min(92.0, max(18.0, inner / 7.0 + 2.5))
 
 
-def build_workbook(
-    cfg: AppConfig,
-    rows: Sequence[tuple[str, list[UrlCheckResult]]],
-    url_headers: list[str],
-    probe_by_pub_ip: Mapping[str, ProbeSummary] | None = None,
-) -> Workbook:
-    """
-    纵向表：每行一条 URL。
-    probe_by_pub_ip: 公网 IP → 结构化探针结果（urllib 层，与浏览器列分离）；未启用时传 None。
-    """
-    wb = Workbook()
-    ws = wb.active
-    assert ws is not None
+def _sheet_title_for_ip(pub_ip: str, used: set[str]) -> str:
+    """按出口 IP 生成可用 sheet 名（Excel 限制 <=31 字符，且需唯一）。"""
+    raw = (pub_ip or "sheet").strip().replace(":", "_").replace("/", "_")
+    base = raw[:31] or "sheet"
+    title = base
+    i = 2
+    while title in used:
+        suffix = f"_{i}"
+        title = (base[: 31 - len(suffix)] + suffix) if len(base) + len(suffix) > 31 else (base + suffix)
+        i += 1
+    used.add(title)
+    return title
 
-    ocfg = cfg.output
-    target_h = int(ocfg.embed_screenshot_max_height)
-    if target_h <= 0:
-        target_h = 180
 
-    tw_disp, th_disp = _screenshot_display_size_px(cfg, target_h)
-    shot_col_wch = _chars_for_screenshot_col(tw_disp)
-
+def _init_sheet_layout(ws, shot_col_wch: float) -> None:
     headers = [
         "公网IP",
         "URL",
@@ -180,7 +173,6 @@ def build_workbook(
     ]
     ws.append(headers)
 
-    # 列宽整体收窄，减少横向滚动成本，优先让用户先看到更多关键列
     ws.column_dimensions["A"].width = 13
     ws.column_dimensions["B"].width = 24
     ws.column_dimensions["C"].width = 24
@@ -198,10 +190,40 @@ def build_workbook(
         c.alignment = HEADER_ALIGN
         c.border = BORDER_HEADER
 
-    last_row = 1
+
+def build_workbook(
+    cfg: AppConfig,
+    rows: Sequence[tuple[str, list[UrlCheckResult]]],
+    url_headers: list[str],
+    probe_by_pub_ip: Mapping[str, ProbeSummary] | None = None,
+) -> Workbook:
+    """
+    纵向表：每行一条 URL。
+    probe_by_pub_ip: 公网 IP → 结构化探针结果（urllib 层，与浏览器列分离）；未启用时传 None。
+    """
+    wb = Workbook()
+    ws0 = wb.active
+    assert ws0 is not None
+
+    ocfg = cfg.output
+    target_h = int(ocfg.embed_screenshot_max_height)
+    if target_h <= 0:
+        target_h = 180
+
+    tw_disp, th_disp = _screenshot_display_size_px(cfg, target_h)
+    shot_col_wch = _chars_for_screenshot_col(tw_disp)
+
     probes = probe_by_pub_ip or {}
 
-    for pub_ip, results in rows:
+    used_titles: set[str] = set()
+    for idx, (pub_ip, results) in enumerate(rows):
+        if idx == 0:
+            ws = ws0
+            ws.title = _sheet_title_for_ip(pub_ip, used_titles)
+        else:
+            ws = wb.create_sheet(title=_sheet_title_for_ip(pub_ip, used_titles))
+        _init_sheet_layout(ws, shot_col_wch)
+        last_row = 1
         ps = probes.get(pub_ip) or ProbeSummary("off", "")
         probe_text = _probe_text_for_excel(ps)
         probe_profile = _probe_profile_for_excel(ps)
@@ -273,8 +295,8 @@ def build_workbook(
             else:
                 ws.row_dimensions[row_num].height = float(ocfg.data_row_height)
 
-    ws.freeze_panes = "A2"
-    if last_row >= 1:
-        ws.auto_filter.ref = f"A1:I{last_row}"
+        ws.freeze_panes = "A2"
+        if last_row >= 1:
+            ws.auto_filter.ref = f"A1:I{last_row}"
 
     return wb

@@ -77,7 +77,7 @@ browser:
   # 每批并行标签数：0 = 一次打开所有标签；>0 则每批最多 N 个（仍受 max_concurrent_tabs 约束）
   tabs_batch_size: 0
   # tabs_batch_size 为 0 时限制单批最大并发标签；0 = 不额外限制；多 URL 列表建议 8–32
-  max_concurrent_tabs: 8
+  max_concurrent_tabs: 32
   # 上一批全部结束后，延迟毫秒再开下一批（多批时生效）
   tabs_batch_delay_ms: 0
   # --- 网络类重试：goto 阶段超时、连接错误等 ---

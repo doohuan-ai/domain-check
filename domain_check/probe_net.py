@@ -75,8 +75,7 @@ def _plaintext_ip_get(url: str, timeout_s: float) -> tuple[str | None, str, int]
         ip = _extract_ip_from_plain_body(body)
         ab = _abbrev(u)
         if ip:
-            # 展示层不再直接显示公网 IP，避免与「出口校验结论」区重复
-            return ip, f"{ab}→HTTP {status} · {ms}ms", ms
+            return ip, f"{ab}→{ip} · HTTP {status} · {ms}ms", ms
         return None, f"{ab}→无有效IP · HTTP {status} · {ms}ms", ms
     except HTTPError as e:
         ms = int((time.perf_counter() - t0) * 1000)
@@ -106,7 +105,7 @@ def _egress_verify_fetch_all(cfg: AppConfig) -> tuple[list[str], list[str | None
 
 def _egress_verify_message(
     echo_lines: list[str],
-    echo_ips: list[str | None],
+    _echo_ips: list[str | None],
     expected_egress_ip: str | None,
     _cf_trace_ip: str | None,
 ) -> str:
@@ -119,7 +118,7 @@ def _egress_verify_message(
 
     exp_norm = _normalize_ip(expected_egress_ip) if expected_egress_ip else None
     if exp_norm:
-        parts.insert(0, f"出口IP {exp_norm}")
+        parts.insert(0, f"路由器本批出口 {exp_norm}")
 
     return " | ".join(parts)
 
