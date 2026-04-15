@@ -10,9 +10,13 @@ pip install -e .
 
 ```bash
 cp config.example.yaml config.yaml   # 复制示例后编辑登录凭据
+domain-check --help                   # 或 -h：参数说明
+domain-check --version                # 或 -V：版本号与 Python 版本
+domain-check --license                # SPDX / AGPL 说明与链接
 domain-check --template               # 或导出完整模板自行修改
 domain-check --wizard
 domain-check --config ./config.yaml
+# CI / 无 ANSI 环境可加强制纯文本：domain-check --no-color --config ./config.yaml
 ```
 
 无路由器本机调试：
@@ -32,6 +36,19 @@ domain-check --config ./config.yaml --skip-router
 - `nat.target_src`
 
 `--skip-router` 模式下只需 `urls`。
+
+## 命令行惯例
+
+除业务子命令外，常见约定已支持：
+
+| 选项 | 作用 |
+|------|------|
+| `-h` / `--help` | 用法与参数说明 |
+| `-V` / `--version` | 程序版本与当前 Python 版本 |
+| `--license` | SPDX 许可证名与 AGPL 条文链接 |
+| `--no-color` | 关闭配色与 Rich 面板（与管道非 TTY 降级互补，便于 CI） |
+
+未列出的能力（如 `-q`/`--quiet`、`-v` 分级日志）可按后续需求再加。
 
 ## 出口与 Excel 说明
 

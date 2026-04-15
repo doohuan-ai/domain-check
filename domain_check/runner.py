@@ -21,6 +21,7 @@ from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.text import Text
 import yaml
 
+from domain_check import distribution_version
 from domain_check.browser_check import (
     UrlCheckResult,
     results_when_nat_skipped,
@@ -128,8 +129,8 @@ def _collect_urls_interactive(c: Console | None) -> list[str]:
     return out
 
 
-def _run_wizard() -> int:
-    rich_on = use_rich_for_stdout()
+def _run_wizard(*, force_plain: bool = False) -> int:
+    rich_on = use_rich_for_stdout(force_plain=force_plain)
     c = themed_console() if rich_on else None
     if c:
         c.print(
@@ -433,6 +434,40 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
     return xlsx_path
 
 
+class _PrintLicenseAction(argparse.Action):
+    """输出 SPDX / AGPL 说明并退出（与 ``pyproject`` 的 license 字段一致）。"""
+
+    def __init__(
+        self,
+        option_strings: list[str],
+        dest: str = argparse.SUPPRESS,
+        default=argparse.SUPPRESS,
+        nargs: int = 0,
+        **kwargs: Any,
+    ) -> None:
+        kwargs.setdefault("help", "显示许可证说明")
+        super().__init__(option_strings, dest, nargs=nargs, default=default, **kwargs)
+
+    def __call__(self, parser: argparse.ArgumentParser, namespace, values, option_string=None) -> None:
+        lic = "AGPL-3.0-only"
+        try:
+            import importlib.metadata as imd
+
+            meta = imd.metadata("domain-check")
+            lic = (meta.get("License", "") or lic).strip() or lic
+        except Exception:
+            pass
+        lines = [
+            f"{parser.prog} — SPDX / 许可证: {lic}",
+            "完整法律文本见安装包内 LICENSE 或项目根目录 LICENSE，以及:",
+            "https://www.gnu.org/licenses/agpl-3.0.html",
+            "",
+            "若组织政策不允许 AGPL 或需商业授权，请联系: reef@doohuan.com（见 README）。",
+        ]
+        sys.stdout.write("\n".join(lines) + "\n")
+        parser.exit(0)
+
+
 class _RichHelpAction(argparse.Action):
     """TTY 下由 ``print_cli_help`` 输出 Rich 版帮助。"""
 
@@ -465,10 +500,29 @@ def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
         prog="domain-check",
         description="深云通 RouterOS 多出口 IP 网站可达性巡检",
-        usage="%(prog)s --help | --wizard | --template | --config PATH [--skip-router]",
+        usage=(
+            "%(prog)s [--help] [--version] [--license] [--no-color] | "
+            "--wizard | --template | --config PATH [--skip-router]"
+        ),
         add_help=False,
     )
+    py = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     parser.add_argument(
+        "--version",
+        "-V",
+        action="version",
+        version=f"%(prog)s {distribution_version()} (Python {py})",
+        help="显示版本号并退出",
+    )
+    parser.add_argument(
+        "--license",
+        action=_PrintLicenseAction,
+        nargs=0,
+        default=argparse.SUPPRESS,
+        help="显示 SPDX 许可证标识与条文链接并退出",
+    )
+    parser.add_argument(
+        "-h",
         "--help",
         action=_RichHelpAction,
         nargs=0,
@@ -495,6 +549,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="跳过路由器校验与 SSH/NAT",
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="禁用彩色与 Rich 装饰（仍可用表格字符；适合 CI 日志）",
+    )
     args = parser.parse_args(argv)
 
     if (args.template or args.wizard) and args.config is not None:
@@ -513,14 +572,14 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write("\n")
         return 0
     if args.wizard:
-        return _run_wizard()
+        return _run_wizard(force_plain=args.no_color)
 
     cfg_path = Path(args.config)
     if not cfg_path.is_file():
         print_simple_runtime_error(f"配置文件不存在: {cfg_path.resolve()}")
         return 1
 
-    rich_on = use_rich_for_stdout()
+    rich_on = use_rich_for_stdout(force_plain=args.no_color)
     ui = RunUI(plain=not rich_on)
 
     try:
