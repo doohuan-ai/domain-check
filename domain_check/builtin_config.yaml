@@ -1,5 +1,5 @@
 # =============================================================================
-# domain-check 默认配置
+# domain-check 默认配置，可复制保存为 config.yaml 后按需修改
 #
 # config.yaml文件一般至少填写：urls、router.host、router.user、router.password、
 # nat.target_src，其余可按需覆盖
