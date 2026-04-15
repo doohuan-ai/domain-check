@@ -113,17 +113,13 @@ def _probe_profile_for_excel(ps: ProbeSummary) -> str:
 
 
 def _egress_verify_for_excel(ps: ProbeSummary) -> str:
-    """出口校验：外显 IP 服务 + 与路由器本批对比；并说明与页面请求同源。"""
+    """出口校验：仅展示外显探针与出口 IP 关键信息。"""
     if ps.state == "off":
         return "—"
     ev = (ps.egress_verify or "").strip()
-    note = (
-        "说明：「公网IP」= 路由器本批 SNAT 目标；urllib 探针与下方页面同一台电脑、"
-        "同一默认路由、顺序执行，本行所有 URL 与截图共用该出口（非逐 URL 换 IP）。"
-    )
     if not ev:
-        return note
-    return _with_extra_blank_lines(ev) + "\n\n" + note
+        return "—"
+    return _with_extra_blank_lines(ev)
 
 
 def _result_text_for_excel(result: UrlCheckResult) -> str:

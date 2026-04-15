@@ -30,6 +30,21 @@ from domain_check.random_surfer import post_goto_random_surfer
 from domain_check.run_support import ScreenshotBudgetAsync
 
 
+def _compact_error_message(err: str) -> str:
+    """
+    压缩 Playwright 错误文本，避免重复段与超长 Call log 淹没 Excel。
+    保留第一段核心错误原因。
+    """
+    raw = (err or "").replace("\r\n", "\n").strip()
+    if not raw:
+        return "未知错误"
+    first_block = raw.split("\n\n", 1)[0].strip()
+    lines = [ln.rstrip() for ln in first_block.split("\n") if ln.strip()]
+    if not lines:
+        return "未知错误"
+    return " | ".join(lines)
+
+
 def results_when_nat_skipped(urls: list[str], exc: BaseException) -> list[UrlCheckResult]:
     """路由器 SSH/NAT 失败且策略为跳过本出口时，为每个 URL 写入占位结果（未启动浏览器）。"""
     detail = f"{type(exc).__name__}: {exc}"
@@ -234,7 +249,7 @@ def check_url_with_page(page, url: str, cfg: AppConfig, screenshot_path: Path | 
     try:
         response = page.goto(url, wait_until=wait_until, timeout=timeout)
     except PlaywrightTimeoutError as e:
-        err_msg = str(e) or "timeout"
+        err_msg = _compact_error_message(str(e) or "timeout")
         _shot_sync(page, screenshot_path)
         return UrlCheckResult(
             ok=False,
@@ -246,7 +261,7 @@ def check_url_with_page(page, url: str, cfg: AppConfig, screenshot_path: Path | 
             screenshot_path=str(screenshot_path) if screenshot_path else None,
         )
     except PlaywrightError as e:
-        err_msg = str(e) or "playwright_error"
+        err_msg = _compact_error_message(str(e) or "playwright_error")
         _shot_sync(page, screenshot_path)
         return UrlCheckResult(
             ok=False,
@@ -566,7 +581,7 @@ async def _check_one_url_async(
                     response = await page.goto(url, wait_until=wait_until, timeout=timeout)
                     break
                 except AsyncPlaywrightTimeoutError as e:
-                    err_msg = str(e) or "timeout"
+                    err_msg = _compact_error_message(str(e) or "timeout")
                     await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
                     last = UrlCheckResult(
                         ok=False,
@@ -602,7 +617,7 @@ async def _check_one_url_async(
                     )
                     return _with_precheck(last)
                 except AsyncPlaywrightError as e:
-                    err_msg = str(e) or "playwright_error"
+                    err_msg = _compact_error_message(str(e) or "playwright_error")
                     await _shot_async(page, screenshot_path, screenshot_budget=screenshot_budget)
                     last = UrlCheckResult(
                         ok=False,
@@ -872,12 +887,28 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
 
 
 def format_cell_status(result: UrlCheckResult) -> str:
+    def _dedup_fields(*vals: str) -> list[str]:
+        out: list[str] = []
+        for v in vals:
+            t = (v or "").strip()
+            if not t:
+                continue
+            if any(t == x or t in x or x in t for x in out):
+                continue
+            out.append(t)
+        return out
+
     if result.label == "success":
-        return f"正常 | {result.summary} | {result.final_url or ''}"
+        fields = _dedup_fields("正常", result.summary, result.final_url or "")
+        return " | ".join(fields)
     if result.label == "blocked":
-        return f"受限/拒绝 | {result.summary} | {result.final_url or ''}"
+        fields = _dedup_fields("受限/拒绝", result.summary, result.final_url or "")
+        return " | ".join(fields)
     if result.label == "challenge":
-        return f"验证墙 | {result.summary} | {result.final_url or ''}"
+        fields = _dedup_fields("验证墙", result.summary, result.final_url or "")
+        return " | ".join(fields)
     if result.label == "skipped":
-        return f"已跳过（未测浏览器）| {result.summary} | {result.error_message or ''}"
-    return f"失败 | {result.summary} | {result.error_message or ''} | {result.final_url or ''}"
+        fields = _dedup_fields("已跳过（未测浏览器）", result.summary, result.error_message or "")
+        return " | ".join(fields)
+    fields = _dedup_fields("失败", result.summary, result.error_message or "", result.final_url or "")
+    return " | ".join(fields)

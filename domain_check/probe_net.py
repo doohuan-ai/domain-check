@@ -75,7 +75,8 @@ def _plaintext_ip_get(url: str, timeout_s: float) -> tuple[str | None, str, int]
         ip = _extract_ip_from_plain_body(body)
         ab = _abbrev(u)
         if ip:
-            return ip, f"{ab}→{ip} · HTTP {status} · {ms}ms", ms
+            # 展示层不再直接显示公网 IP，避免与「出口校验结论」区重复
+            return ip, f"{ab}→HTTP {status} · {ms}ms", ms
         return None, f"{ab}→无有效IP · HTTP {status} · {ms}ms", ms
     except HTTPError as e:
         ms = int((time.perf_counter() - t0) * 1000)
@@ -107,9 +108,9 @@ def _egress_verify_message(
     echo_lines: list[str],
     echo_ips: list[str | None],
     expected_egress_ip: str | None,
-    cf_trace_ip: str | None,
+    _cf_trace_ip: str | None,
 ) -> str:
-    """第二套「看我 IP」结论文案 + 与路由器本批出口 / Cloudflare trace 交叉对照。"""
+    """第二套「看我 IP」结果：仅保留关键信息，不追加固定结论段。"""
     if not echo_lines:
         return ""
 
@@ -118,31 +119,7 @@ def _egress_verify_message(
 
     exp_norm = _normalize_ip(expected_egress_ip) if expected_egress_ip else None
     if exp_norm:
-        parts.insert(0, f"路由器本批出口 {exp_norm}")
-
-    cf_norm = _normalize_ip(cf_trace_ip) if cf_trace_ip else None
-    if cf_norm:
-        parts.append(f"Cloudflare trace ip {cf_norm}")
-
-    uniq_echo = sorted(set(echo_ok))
-    if len(uniq_echo) > 1:
-        parts.append("外显不一致：各「看我IP」服务返回不同，可能有多层 NAT 或链路抖动")
-    elif len(uniq_echo) == 1 and len(echo_ok) >= 2:
-        parts.append("外显一致：多台外部探针返回相同公网 IP")
-
-    if exp_norm:
-        bad = [x for x in echo_ok if x != exp_norm]
-        if echo_ok and not bad:
-            parts.append("与路由器本批出口一致 ✓")
-        elif echo_ok and bad:
-            parts.append("与路由器本批出口不一致 ✗（请以探针外显为准排查 SNAT/策略路由）")
-    elif echo_ok:
-        parts.append("（无路由器期望 IP：本机/跳过路由模式，仅记录外显）")
-
-    if cf_norm and uniq_echo:
-        uq = uniq_echo[0]
-        if uq != cf_norm:
-            parts.append("提示：Cloudflare trace 与纯文本探针外显不同（常见于 CGNAT、企业代理或命中不同路径）")
+        parts.insert(0, f"出口IP {exp_norm}")
 
     return " | ".join(parts)
 
@@ -191,7 +168,7 @@ def _trace_profile_from_kv(profile_kv: dict[str, str]) -> str:
     for k in order:
         v = profile_kv.get(k)
         if v:
-            profile_parts.append(f"{k} {v}")
+            profile_parts.append(f"{k} = {v}")
     return " | ".join(profile_parts)
 
 
