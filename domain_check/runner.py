@@ -508,23 +508,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     py = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {distribution_version()} (Python {py})",
-        help="显示版本号",
-    )
-    parser.add_argument(
-        "--license",
-        action=_PrintLicenseAction,
-        nargs=0,
-        default=argparse.SUPPRESS,
-        help="显示 SPDX 许可证标识与条文链接",
-    )
-    parser.add_argument(
         "--help",
         action=_RichHelpAction,
         nargs=0,
         default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {distribution_version()} (Python {py})",
+        help="显示版本号",
     )
     g = parser.add_mutually_exclusive_group(required=False)
     g.add_argument(
@@ -546,6 +539,13 @@ def main(argv: list[str] | None = None) -> int:
         "--skip-router",
         action="store_true",
         help="跳过路由器校验与 SSH/NAT",
+    )
+    parser.add_argument(
+        "--license",
+        action=_PrintLicenseAction,
+        nargs=0,
+        default=argparse.SUPPRESS,
+        help="显示 SPDX 许可证标识与条文链接",
     )
     args = parser.parse_args(argv)
 
