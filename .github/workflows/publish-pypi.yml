@@ -5,6 +5,10 @@
 
 name: Publish to PyPI
 
+env:
+  # 提前切到 Node24 运行 JS Actions，规避 GitHub Runner 的 Node20 下线风险。
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 on:
   push:
     tags:
@@ -24,7 +28,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install build tools
-        run: pip install build twine
+        run: python -m pip install --upgrade pip build twine
 
       - name: Build wheel and sdist
         run: python -m build
