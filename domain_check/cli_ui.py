@@ -198,13 +198,8 @@ def _status_cell(label: str) -> tuple[str, str]:
     return "失败", "dt.err"
 
 
-def use_rich_for_stdout(*, force_plain: bool = False) -> bool:
-    """
-    是否启用 Rich：仅当 stdout 为 TTY 时开启；管道或非交互环境自动纯文本。
-    ``force_plain=True`` 时等价于 ``--no-color``，强制不用配色与 Rich 面板。
-    """
-    if force_plain:
-        return False
+def use_rich_for_stdout() -> bool:
+    """是否启用 Rich：仅当 stdout 为 TTY 时开启；管道或非交互环境自动纯文本。"""
     return bool(sys.stdout.isatty())
 
 

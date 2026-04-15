@@ -129,8 +129,8 @@ def _collect_urls_interactive(c: Console | None) -> list[str]:
     return out
 
 
-def _run_wizard(*, force_plain: bool = False) -> int:
-    rich_on = use_rich_for_stdout(force_plain=force_plain)
+def _run_wizard() -> int:
+    rich_on = use_rich_for_stdout()
     c = themed_console() if rich_on else None
     if c:
         c.print(
@@ -435,7 +435,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
 
 
 class _PrintLicenseAction(argparse.Action):
-    """输出 SPDX / AGPL 说明并退出（与 ``pyproject`` 的 license 字段一致）。"""
+    """输出 SPDX / AGPL 说明（与 ``pyproject`` 的 license 字段一致）。"""
 
     def __init__(
         self,
@@ -501,7 +501,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="domain-check",
         description="深云通 RouterOS 多出口 IP 网站可达性巡检",
         usage=(
-            "%(prog)s [--help] [--version] [--license] [--no-color] | "
+            "%(prog)s [--help] [--version] [--license] | "
             "--wizard | --template | --config PATH [--skip-router]"
         ),
         add_help=False,
@@ -509,20 +509,18 @@ def main(argv: list[str] | None = None) -> int:
     py = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     parser.add_argument(
         "--version",
-        "-V",
         action="version",
         version=f"%(prog)s {distribution_version()} (Python {py})",
-        help="显示版本号并退出",
+        help="显示版本号",
     )
     parser.add_argument(
         "--license",
         action=_PrintLicenseAction,
         nargs=0,
         default=argparse.SUPPRESS,
-        help="显示 SPDX 许可证标识与条文链接并退出",
+        help="显示 SPDX 许可证标识与条文链接",
     )
     parser.add_argument(
-        "-h",
         "--help",
         action=_RichHelpAction,
         nargs=0,
@@ -549,11 +547,6 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="跳过路由器校验与 SSH/NAT",
     )
-    parser.add_argument(
-        "--no-color",
-        action="store_true",
-        help="禁用彩色与 Rich 装饰（仍可用表格字符；适合 CI 日志）",
-    )
     args = parser.parse_args(argv)
 
     if (args.template or args.wizard) and args.config is not None:
@@ -572,14 +565,14 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write("\n")
         return 0
     if args.wizard:
-        return _run_wizard(force_plain=args.no_color)
+        return _run_wizard()
 
     cfg_path = Path(args.config)
     if not cfg_path.is_file():
         print_simple_runtime_error(f"配置文件不存在: {cfg_path.resolve()}")
         return 1
 
-    rich_on = use_rich_for_stdout(force_plain=args.no_color)
+    rich_on = use_rich_for_stdout()
     ui = RunUI(plain=not rich_on)
 
     try:
