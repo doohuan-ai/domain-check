@@ -105,7 +105,7 @@ def _egress_verify_fetch_all(cfg: AppConfig) -> tuple[list[str], list[str | None
 
 def _egress_verify_message(
     echo_lines: list[str],
-    _echo_ips: list[str | None],
+    echo_ips: list[str | None],
     expected_egress_ip: str | None,
     _cf_trace_ip: str | None,
 ) -> str:

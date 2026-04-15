@@ -136,11 +136,14 @@ def _run_wizard() -> int:
         c.print(
             Panel(
                 Group(
-                    Text("domain-check 新手向导", style="dt.title"),
+                    Text("domain-check", style="dt.title"),
+                    Text(""),
+                    Text("domain-check 新手向导", style="dt.sub"),
                     Text("按步骤输入关键参数，自动生成可运行配置。", style="dt.sub"),
                 ),
                 border_style="dt.accent",
                 box=box.ROUNDED,
+                title=Text("深云通 RouterOS 多出口 IP 网站可达性巡检", style="dt.title"),
                 padding=(0, 1),
             )
         )
@@ -311,7 +314,11 @@ def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
         else None
     )
 
-    ui.header("深云通 RouterOS 多出口 IP 网站可达性巡检", "本机浏览器巡检 · 跳过路由器 / NAT")
+    ui.header(
+        "domain-check",
+        "本机浏览器巡检 · 跳过路由器 / NAT",
+        "深云通 RouterOS 多出口 IP 网站可达性巡检",
+    )
     ui.step(f"运行目录 {run_dir.name} · 待测 URL {len(urls)} 个")
     if emit:
         ui.step(f"JSON 事件日志: {log_path}")
@@ -369,7 +376,11 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
         else None
     )
 
-    ui.header("domain-check", f"多出口巡检 · {len(ip_list)} 个公网 IP × {len(urls)} 个 URL")
+    ui.header(
+        "domain-check",
+        f"多出口巡检 · {len(ip_list)} 个公网 IP × {len(urls)} 个 URL",
+        "深云通 RouterOS 多出口 IP 网站可达性巡检",
+    )
     ui.step(f"运行目录 {run_dir.name}")
     if emit:
         ui.step(f"JSON 事件日志: {log_path}")

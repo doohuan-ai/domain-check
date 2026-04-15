@@ -65,7 +65,7 @@ class RunUI:
         self.plain = plain
         self.console = _make_console(plain=plain)
 
-    def header(self, title: str, subtitle: str = "") -> None:
+    def header(self, title: str, subtitle: str = "", panel_title: str = "") -> None:
         if self.plain:
             print(f"\n{'=' * 60}\n{title}")
             if subtitle:
@@ -74,13 +74,15 @@ class RunUI:
             return
         lines: list[Text | str] = [Text(title, style="dt.title")]
         if subtitle:
+            lines.append(Text(""))
             lines.append(Text(subtitle, style="dt.sub"))
         self.console.print()
         self.console.print(
             Panel(
                 Group(*lines),
                 box=box.ROUNDED,
-                border_style="dt.muted",
+                border_style="dt.accent",
+                title=Text(panel_title, style="dt.title") if panel_title else None,
                 padding=(0, 1),
             )
         )
