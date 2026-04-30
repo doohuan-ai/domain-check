@@ -1,4 +1,7 @@
-"""可选：页面加载成功后随机滚动、轻微鼠标移动、随机点击若干可见可点击元素（浅层探索）。"""
+"""可选：页面加载成功后随机滚动、轻微鼠标移动、随机点击若干可见可点击元素（浅层探索）。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

@@ -1,0 +1,22 @@
+domain-check
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+
+Maintainer / Contact
+- Company: doohuan-ai
+- Maintainer: REEF Jones
+- Email: reef@doohuan.com
+- GitHub: https://github.com/doohuan-ai
+
+License
+- This project is licensed under GNU Affero General Public License v3.0 (AGPL-3.0-only).
+- Full license text is provided in LICENSE.
+
+Third-party acknowledgements
+- paramiko (SSH client library)
+- openpyxl (Excel read/write)
+- Pillow (image processing)
+- PyYAML (YAML parsing)
+- playwright (browser automation)
+- rich (terminal UI)
+
+These dependencies are governed by their own licenses.

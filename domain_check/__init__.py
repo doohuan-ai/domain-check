@@ -1,4 +1,7 @@
-"""深云通 RouterOS 多出口 IP 网站可达性巡检"""
+"""深云通 RouterOS 多出口 IP 网站可达性巡检
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

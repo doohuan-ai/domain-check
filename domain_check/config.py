@@ -1,3 +1,8 @@
+"""配置解析与校验。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
+
 from __future__ import annotations
 
 from importlib import resources

@@ -6,6 +6,8 @@ Chrome / Playwright 启动与 Context 选项（参考 aips-desktop 的 BrowserMa
 - 注入：可选清理 Selenium/WebDriver 遗留 window 属性（不做 Canvas 噪声，避免干扰通用站点检测）。
 
 仅使用本机 **Google Chrome**（`browser.chrome_path` / `channel` / 常见路径探测），不依赖 Playwright 自带的浏览器安装包；用户无需执行 ``playwright install`` 下载运行时。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
 """
 
 from __future__ import annotations

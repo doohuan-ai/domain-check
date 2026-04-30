@@ -1,4 +1,7 @@
-"""可选 HTTP 探针：在本机当前路由/NAT 下用 urllib 快速探测 URL，与浏览器检测互补。"""
+"""可选 HTTP 探针：在本机当前路由/NAT 下用 urllib 快速探测 URL，与浏览器检测互补。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

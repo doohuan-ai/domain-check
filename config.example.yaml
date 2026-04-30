@@ -19,6 +19,8 @@ router:
   user: "your_router_username"
   # SSH 密码（必填，除非 --skip-router）
   password: "your_router_password"
+  # 公网地址所在接口名（默认 lo）
+  lo_interface: lo
 
 # -----------------------------------------------------------------------------
 # nat：与 /ip firewall nat 中匹配 src-address 的规则对应；用于 set to-addresses

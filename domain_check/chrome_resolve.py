@@ -1,4 +1,7 @@
-"""在本机查找 Google Chrome 可执行文件（Windows / macOS / Linux）。"""
+"""在本机查找 Google Chrome 可执行文件（Windows / macOS / Linux）。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

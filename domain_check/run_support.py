@@ -1,4 +1,7 @@
-"""运行期辅助：异步截图总字节预算（防磁盘打满）。"""
+"""运行期辅助：异步截图总字节预算（防磁盘打满）。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

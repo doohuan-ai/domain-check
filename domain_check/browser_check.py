@@ -1,4 +1,7 @@
-"""Playwright：打开 URL、基于 HTTP/DOM 判定可达性；视口截图；支持异步多标签分批与重试。"""
+"""Playwright：打开 URL、基于 HTTP/DOM 判定可达性；视口截图；支持异步多标签分批与重试。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

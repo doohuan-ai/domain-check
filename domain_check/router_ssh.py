@@ -1,4 +1,7 @@
-"""RouterOS SSH：拉取 loopback 出口 IP、切换 SNAT。"""
+"""RouterOS SSH：拉取 loopback 出口 IP、切换 SNAT。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

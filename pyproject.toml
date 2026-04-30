@@ -4,9 +4,10 @@ version = "0.1.0"
 description = "深云通 RouterOS 多出口 IP 网站可达性巡检"
 readme = "README.md"
 license = "AGPL-3.0-only"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.10"
-authors = [{ name = "domain-check contributors" }]
+authors = [{ name = "REEF Jones", email = "reef@doohuan.com" }]
+maintainers = [{ name = "REEF Jones", email = "reef@doohuan.com" }]
 keywords = ["routeros", "mikrotik", "playwright", "nat", "snat", "domain-check"]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -26,6 +27,11 @@ dependencies = [
   "playwright>=1.40.0",
   "rich>=13.7.0",
 ]
+
+[project.urls]
+Homepage = "https://www.doohuan.com/"
+Repository = "https://github.com/doohuan-ai/domain-check"
+Contact = "https://www.doohuan.com/"
 
 [project.optional-dependencies]
 dev = ["build>=1.0.0", "twine>=5.0.0"]

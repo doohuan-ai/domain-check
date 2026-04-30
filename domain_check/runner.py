@@ -1,4 +1,7 @@
-"""编排：拉取出口 IP → 切 NAT → Playwright 检测 → 写 Excel。"""
+"""编排：拉取出口 IP → 切 NAT → Playwright 检测 → 写 Excel。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

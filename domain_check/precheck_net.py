@@ -1,4 +1,7 @@
-"""URL 前置网络预检：DNS/TCP/PING（轻量信号，不替代浏览器检测）。"""
+"""URL 前置网络预检：DNS/TCP/PING（轻量信号，不替代浏览器检测）。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 

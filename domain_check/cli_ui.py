@@ -1,6 +1,8 @@
 """
 终端 UI（Rich）：风格接近 Claude Code / 现代 CLI — 圆角分区、柔和配色、步骤与表格。
 stdout 非 TTY（如管道、重定向）时自动降级为纯文本，无需额外参数。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
 """
 
 from __future__ import annotations

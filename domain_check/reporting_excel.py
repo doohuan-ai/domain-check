@@ -1,4 +1,7 @@
-"""Excel 报告：纵向每 URL 一行、表头与状态列/截图列配色、探针列、截图 TwoCellAnchor 随单元格隐藏。"""
+"""Excel 报告：纵向每 URL 一行、表头与状态列/截图列配色、探针列、截图 TwoCellAnchor 随单元格隐藏。
+
+Copyright (c) 2026 doohuan-ai (REEF Jones)
+"""
 
 from __future__ import annotations
 
