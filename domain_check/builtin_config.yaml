@@ -1,5 +1,5 @@
 # =============================================================================
-# domain-check 默认配置，可复制保存为 config.yaml 后按需修改
+# syt-dc 默认配置，可复制保存为 config.yaml 后按需修改
 #
 # config.yaml文件一般至少填写：urls、router.host、router.user、router.password、
 # nat.target_src，其余可按需覆盖
@@ -49,7 +49,7 @@ run:
 logging:
   # 是否写入 json_events_filename
   json_events_log: false
-  # 事件文件名（相对当次运行目录，如 domain_check_1234567890/events.jsonl）
+  # 事件文件名（相对当次运行目录，如 syt_dc_1234567890/events.jsonl）
   json_events_filename: events.jsonl
 
 # -----------------------------------------------------------------------------
@@ -184,10 +184,10 @@ precheck:
 # -----------------------------------------------------------------------------
 output:
   # 报告根目录（相对进程 cwd）；其下创建 <excel_prefix>_<unix时间>/ 子目录
-  # Windows 勿在 C:\Windows\System32 下运行（会改到配置旁 reports 或用户目录 domain-check-reports）
+  # Windows 勿在 C:\Windows\System32 下运行（会改到配置旁 reports 或用户目录 syt-dc-reports）
   dir: .
   # Excel 文件名前缀
-  excel_prefix: domain_check
+  excel_prefix: syt_dc
   # Excel 内嵌截图最大宽度（像素）
   embed_screenshot_max_width: 300
   # Excel 内嵌截图最大高度（像素）

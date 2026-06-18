@@ -61,7 +61,7 @@ def _make_console(*, plain: bool, stderr: bool = False) -> Console:
 
 
 class RunUI:
-    """一次 domain-check 运行的控制台输出封装。"""
+    """一次 syt-dc 运行的控制台输出封装。"""
 
     def __init__(self, *, plain: bool) -> None:
         self.plain = plain

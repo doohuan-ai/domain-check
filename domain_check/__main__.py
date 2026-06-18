@@ -1,4 +1,4 @@
-"""domain-check 模块入口。
+"""syt-dc 模块入口。
 
 Copyright (c) 2026 doohuan-ai (REEF Jones)
 """

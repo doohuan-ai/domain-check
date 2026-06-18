@@ -67,7 +67,7 @@ def _prepare_run_directory(
         on_note(note)
     out_root.mkdir(parents=True, exist_ok=True)
     run_id = int(time.time())
-    prefix = (cfg.output.excel_prefix or "domain_check").strip() or "domain_check"
+    prefix = (cfg.output.excel_prefix or "syt_dc").strip() or "syt_dc"
     # 与 Excel 文件名前缀一致，便于识别同一轮输出目录
     run_dir = out_root / f"{prefix}_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -83,7 +83,7 @@ def _write_excel_report(
     probe_by_pub_ip: dict[str, ProbeSummary],
 ) -> Path:
     wb = build_workbook(cfg, rows, urls, probe_by_pub_ip)
-    prefix = (cfg.output.excel_prefix or "domain_check").strip() or "domain_check"
+    prefix = (cfg.output.excel_prefix or "syt_dc").strip() or "syt_dc"
     xlsx_path = run_dir / f"{prefix}_{run_id}.xlsx"
     save_workbook(wb, xlsx_path)
     return xlsx_path
@@ -146,9 +146,9 @@ def _run_wizard() -> int:
         c.print(
             Panel(
                 Group(
-                    Text("domain-check", style="dt.title"),
+                    Text("syt-dc", style="dt.title"),
                     Text(""),
-                    Text("domain-check 新手向导", style="dt.sub"),
+                    Text("syt-dc 新手向导", style="dt.sub"),
                     Text("按步骤输入关键参数，自动生成可运行配置。", style="dt.sub"),
                 ),
                 border_style="dt.accent",
@@ -215,8 +215,8 @@ def _run_wizard() -> int:
     precheck_on = Confirm.ask("是否开启 URL 前置预检（DNS/TCP/PING）？", default=True) if c else (
         input("是否开启 URL 前置预检？[Y/n]: ").strip().lower() not in ("n", "no")
     )
-    excel_prefix = Prompt.ask("Excel 文件名前缀", default="domain_check") if c else (
-        input("Excel 文件名前缀（默认 domain_check）: ").strip() or "domain_check"
+    excel_prefix = Prompt.ask("Excel 文件名前缀", default="syt_dc") if c else (
+        input("Excel 文件名前缀（默认 syt_dc）: ").strip() or "syt_dc"
     )
 
     cfg: dict[str, Any] = {
@@ -245,7 +245,7 @@ def _run_wizard() -> int:
             "tcp_port": 443,
         },
         "output": {
-            "excel_prefix": excel_prefix.strip() or "domain_check",
+            "excel_prefix": excel_prefix.strip() or "syt_dc",
             "dir": ".",
         },
     }
@@ -269,8 +269,8 @@ def _run_wizard() -> int:
     yaml_body = yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False)
     yaml_body = _yaml_blank_lines_between_top_keys(yaml_body)
     txt = (
-        "# 由 domain-check --wizard 自动生成\n"
-        "# 完整键与注释：domain-check --template\n\n"
+        "# 由 syt-dc --wizard 自动生成\n"
+        "# 完整键与注释：syt-dc --template\n\n"
         + yaml_body
     )
     try:
@@ -285,7 +285,7 @@ def _run_wizard() -> int:
         return 1
 
     if c:
-        cmd = f'domain-check --config "{out_path}"' + (" --skip-router" if local_only else "")
+        cmd = f'syt-dc --config "{out_path}"' + (" --skip-router" if local_only else "")
         c.print(
             Panel(
                 Group(
@@ -302,7 +302,7 @@ def _run_wizard() -> int:
         )
     else:
         print(f"配置已生成: {out_path.resolve()}")
-        cmd = f'domain-check --config "{out_path}"' + (" --skip-router" if local_only else "")
+        cmd = f'syt-dc --config "{out_path}"' + (" --skip-router" if local_only else "")
         print(f"下一步运行: {cmd}")
     return 0
 
@@ -329,7 +329,7 @@ def run_skip_router_only(
     )
 
     ui.header(
-        "domain-check",
+        "syt-dc",
         "本机浏览器巡检 · 跳过路由器 / NAT",
         "深云通 RouterOS 多出口 IP 网站可达性巡检",
     )
@@ -392,7 +392,7 @@ def run(cfg: AppConfig, ui: RunUI, config_path: Path | None = None) -> Path:
     )
 
     ui.header(
-        "domain-check",
+        "syt-dc",
         f"多出口巡检 · {len(ip_list)} 个公网 IP × {len(urls)} 个 URL",
         "深云通 RouterOS 多出口 IP 网站可达性巡检",
     )
@@ -511,7 +511,7 @@ class _PrintLicenseAction(argparse.Action):
         try:
             import importlib.metadata as imd
 
-            meta = imd.metadata("domain-check")
+            meta = imd.metadata("syt-dc")
             lic = (meta.get("License", "") or lic).strip() or lic
         except Exception:
             pass
@@ -556,7 +556,7 @@ class DomainCheckArgumentParser(argparse.ArgumentParser):
 
 def main(argv: list[str] | None = None) -> int:
     parser = DomainCheckArgumentParser(
-        prog="domain-check",
+        prog="syt-dc",
         description="深云通 RouterOS 多出口 IP 网站可达性巡检",
         usage=(
             "%(prog)s [--help] [--version] [--license] | "

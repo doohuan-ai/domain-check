@@ -79,18 +79,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          WHL=(dist/domain_check-*-py3-none-any.whl)
-          if [[ ! -f "${WHL[0]}" ]]; then
-            echo "Expected exactly one wheel in dist/, found: ${WHL[*]:-<none>}"
+          VER="${{ steps.vars.outputs.version }}"
+          SRC="dist/syt_dc-${VER}-py3-none-any.whl"
+          DST="dist/syt_dc-0.post0-py3-none-any.whl"
+          if [[ ! -f "${SRC}" ]]; then
+            echo "Missing versioned wheel: ${SRC}"
+            ls -la dist/
             exit 1
           fi
-          if [[ ${#WHL[@]} -ne 1 ]]; then
-            echo "Expected exactly one wheel in dist/, found: ${WHL[*]}"
-            exit 1
-          fi
-          cp "${WHL[0]}" dist/domain_check-latest-py3-none-any.whl
-          echo "Versioned wheel: ${WHL[0]}"
-          echo "Latest alias:    dist/domain_check-latest-py3-none-any.whl"
+          cp "${SRC}" "${DST}"
+          echo "Versioned wheel: ${SRC}"
+          echo "Latest alias:    ${DST} (PEP 440 合法文件名，供 pip/pipx 使用)"
 
       - name: Verify artifacts
         run: twine check dist/*.whl dist/*.tar.gz
@@ -99,7 +98,7 @@ jobs:
         shell: bash
         run: |
           cd dist
-          sha256sum domain_check-*-py3-none-any.whl domain_check-*.tar.gz > SHA256SUMS.txt
+          sha256sum syt_dc-*-py3-none-any.whl syt_dc-*.tar.gz > SHA256SUMS.txt
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
@@ -108,6 +107,6 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           files: |
-            dist/domain_check-*-py3-none-any.whl
-            dist/domain_check-*.tar.gz
+            dist/syt_dc-*-py3-none-any.whl
+            dist/syt_dc-*.tar.gz
             dist/SHA256SUMS.txt

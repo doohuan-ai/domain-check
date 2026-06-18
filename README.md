@@ -7,8 +7,16 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 ### 安装
 
 ```bash
-pip install "https://github.com/doohuan-ai/domain-check/releases/latest/download/domain_check-latest-py3-none-any.whl"
+pip install syt-dc
 ```
+
+若尚未发布到 PyPI，或需从 GitHub 安装最新 Release：
+
+```bash
+pip install "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
+```
+
+本机需已安装 **Google Chrome**。勿使用公共 PyPI 的 `domain-check`（那是别人的 TLD 查询工具）。
 
 ### 开发环境
 
@@ -20,13 +28,13 @@ pip install -e .
 
 ```bash
 cp config.example.yaml config.yaml
-domain-check --config ./config.yaml
+syt-dc --config ./config.yaml
 ```
 
 无路由器本机调试：
 
 ```bash
-domain-check --config ./config.yaml --skip-router
+syt-dc --config ./config.yaml --skip-router
 ```
 
 ## 必填配置

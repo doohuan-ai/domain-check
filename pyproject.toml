@@ -1,6 +1,6 @@
 [project]
-name = "domain-check"
-version = "0.1.1"
+name = "syt-dc"
+version = "0.1.2"
 description = "深云通 RouterOS 多出口 IP 网站可达性巡检"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -8,7 +8,7 @@ license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.10"
 authors = [{ name = "REEF Jones", email = "reef@doohuan.com" }]
 maintainers = [{ name = "REEF Jones", email = "reef@doohuan.com" }]
-keywords = ["routeros", "mikrotik", "playwright", "nat", "snat", "domain-check"]
+keywords = ["routeros", "mikrotik", "playwright", "nat", "snat", "syt-dc", "egress"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",
@@ -37,7 +37,7 @@ Contact = "https://www.doohuan.com/"
 dev = ["build>=1.0.0", "twine>=5.0.0"]
 
 [project.scripts]
-domain-check = "domain_check.runner:cli_entry"
+syt-dc = "domain_check.runner:cli_entry"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

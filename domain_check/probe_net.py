@@ -68,7 +68,7 @@ def _plaintext_ip_get(url: str, timeout_s: float) -> tuple[str | None, str, int]
     try:
         req = urllib.request.Request(
             u,
-            headers={"User-Agent": "domain-check-probe/1"},
+            headers={"User-Agent": "syt-dc-probe/1"},
             method="GET",
         )
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
@@ -209,7 +209,7 @@ def run_probe_summary(cfg: AppConfig, expected_egress_ip: str | None = None) -> 
         try:
             req = urllib.request.Request(
                 u,
-                headers={"User-Agent": "domain-check-probe/1"},
+                headers={"User-Agent": "syt-dc-probe/1"},
                 method="GET",
             )
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:

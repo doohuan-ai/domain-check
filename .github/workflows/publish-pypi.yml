@@ -1,5 +1,5 @@
 # 在 GitHub 仓库 Settings → Secrets → Actions 中配置 PYPI_API_TOKEN（PyPI API token）。
-# 发布前请将 pyproject.toml 中 [project] version 与 git tag（如 v0.1.0）对齐。
+# 发布前请将 pyproject.toml 中 [project] version 与 git tag（如 v0.1.2）对齐。
 # 推送 v* 标签或手动 Run workflow 会 build 并 twine upload。
 # 私有源：见 README；可复制本文件另存 workflow，把 twine upload 改为 --repository-url 等参数。
 

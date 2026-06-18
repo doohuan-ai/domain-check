@@ -196,7 +196,7 @@ class AccessConfig:
 class OutputConfig:
     """报告根目录由 YAML ``output.dir`` 提供（默认 ``.`` 即 cwd）。"""
     dir: str = "."
-    excel_prefix: str = "domain_check"
+    excel_prefix: str = "syt_dc"
     embed_screenshot_max_width: int = 300
     embed_screenshot_max_height: int = 180
     data_row_height: float = 24.0
@@ -407,7 +407,7 @@ def _dict_to_appconfig(d: dict[str, Any]) -> AppConfig:
         ),
         output=OutputConfig(
             dir=str(out_dir).strip(),
-            excel_prefix=str(o.get("excel_prefix", "domain_check")),
+            excel_prefix=str(o.get("excel_prefix", "syt_dc")),
             embed_screenshot_max_width=int(o.get("embed_screenshot_max_width", 300)),
             embed_screenshot_max_height=int(o.get("embed_screenshot_max_height", 180)),
             data_row_height=float(o.get("data_row_height", 24)),
@@ -464,7 +464,7 @@ def _fallback_output_root(config_path: Path | None) -> Path:
                 return parent / "reports"
         except OSError:
             pass
-    return Path.home() / "domain-check-reports"
+    return Path.home() / "syt-dc-reports"
 
 
 def resolve_output_dir(cfg: AppConfig, config_path: Path | None = None) -> tuple[Path, str | None]:
