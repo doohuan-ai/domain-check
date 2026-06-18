@@ -4,6 +4,14 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 
 ## 快速开始
 
+### 安装
+
+```bash
+pip install "https://github.com/doohuan-ai/domain-check/releases/latest/download/domain_check-latest-py3-none-any.whl"
+```
+
+### 开发环境
+
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import importlib.metadata
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 def distribution_version() -> str:

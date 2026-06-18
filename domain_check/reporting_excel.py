@@ -5,12 +5,15 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 
 from __future__ import annotations
 
+import os
+import zipfile
 from pathlib import Path
 from typing import Mapping, Sequence
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
-from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils.units import pixels_to_EMU
 from domain_check.browser_check import UrlCheckResult, format_cell_status
@@ -162,6 +165,29 @@ def _sheet_title_for_ip(pub_ip: str, used: set[str]) -> str:
     return title
 
 
+def save_workbook(wb: Workbook, xlsx_path: Path) -> None:
+    """原子写入 xlsx 并校验 ZIP 结构，避免半截文件被 WPS/Excel 判为无效。"""
+    xlsx_path = Path(xlsx_path)
+    xlsx_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = xlsx_path.with_name(xlsx_path.name + ".tmp")
+    try:
+        wb.save(tmp)
+        size = tmp.stat().st_size
+        if size < 64:
+            raise OSError(f"Excel 写入失败：文件过小（{size} 字节）")
+        if not zipfile.is_zipfile(tmp):
+            raise OSError("Excel 写入失败：不是有效的 ZIP 归档（.xlsx）")
+        with zipfile.ZipFile(tmp, "r") as zf:
+            names = zf.namelist()
+            if "[Content_Types].xml" not in names or not any(n.endswith(".xml") for n in names):
+                raise OSError("Excel 写入失败：归档内容不完整")
+        os.replace(tmp, xlsx_path)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+        raise
+
+
 def _init_sheet_layout(ws, shot_col_wch: float) -> None:
     headers = [
         "公网IP",
@@ -275,21 +301,18 @@ def build_workbook(
                     img.height = th_disp
                     h_px_total = th_disp + 2 * _IMAGE_PAD_PX
                     ws.row_dimensions[row_num].height = _px_to_row_height_points(h_px_total)
-                    # twoCell：使用像素偏移定义非零锚区，避免零宽/零高导致 Excel 不显示图片
+                    # oneCell + ext：比 twoCell 更易被 WPS / 旧版 Excel 正确识别
                     r0 = row_num - 1
-                    img.anchor = TwoCellAnchor(
-                        editAs="twoCell",
+                    img.anchor = OneCellAnchor(
                         _from=AnchorMarker(
                             col=8,
                             colOff=pixels_to_EMU(_IMAGE_PAD_PX),
                             row=r0,
                             rowOff=pixels_to_EMU(_IMAGE_PAD_PX),
                         ),
-                        to=AnchorMarker(
-                            col=8,
-                            colOff=pixels_to_EMU(_IMAGE_PAD_PX + tw_disp),
-                            row=r0,
-                            rowOff=pixels_to_EMU(_IMAGE_PAD_PX + th_disp),
+                        ext=XDRPositiveSize2D(
+                            pixels_to_EMU(tw_disp),
+                            pixels_to_EMU(th_disp),
                         ),
                     )
                     ws.add_image(img)

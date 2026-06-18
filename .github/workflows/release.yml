@@ -75,14 +75,31 @@ jobs:
       - name: Build wheel and sdist
         run: python -m build
 
+      - name: Add fixed-name wheel for latest download URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          WHL=(dist/domain_check-*-py3-none-any.whl)
+          if [[ ! -f "${WHL[0]}" ]]; then
+            echo "Expected exactly one wheel in dist/, found: ${WHL[*]:-<none>}"
+            exit 1
+          fi
+          if [[ ${#WHL[@]} -ne 1 ]]; then
+            echo "Expected exactly one wheel in dist/, found: ${WHL[*]}"
+            exit 1
+          fi
+          cp "${WHL[0]}" dist/domain_check-latest-py3-none-any.whl
+          echo "Versioned wheel: ${WHL[0]}"
+          echo "Latest alias:    dist/domain_check-latest-py3-none-any.whl"
+
       - name: Verify artifacts
-        run: twine check dist/*
+        run: twine check dist/*.whl dist/*.tar.gz
 
       - name: Generate SHA256 checksums
         shell: bash
         run: |
           cd dist
-          sha256sum * > SHA256SUMS.txt
+          sha256sum domain_check-*-py3-none-any.whl domain_check-*.tar.gz > SHA256SUMS.txt
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
@@ -91,6 +108,6 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           files: |
-            dist/*.whl
-            dist/*.tar.gz
+            dist/domain_check-*-py3-none-any.whl
+            dist/domain_check-*.tar.gz
             dist/SHA256SUMS.txt

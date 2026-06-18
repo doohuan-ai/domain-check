@@ -184,6 +184,7 @@ precheck:
 # -----------------------------------------------------------------------------
 output:
   # 报告根目录（相对进程 cwd）；其下创建 <excel_prefix>_<unix时间>/ 子目录
+  # Windows 勿在 C:\Windows\System32 下运行（会改到配置旁 reports 或用户目录 domain-check-reports）
   dir: .
   # Excel 文件名前缀
   excel_prefix: domain_check

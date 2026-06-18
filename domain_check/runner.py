@@ -48,7 +48,7 @@ from domain_check.config import (
     validate_config_schema,
 )
 from domain_check.probe_net import ProbeSummary, run_probe_summary
-from domain_check.reporting_excel import build_workbook
+from domain_check.reporting_excel import build_workbook, save_workbook
 from domain_check.router_ssh import change_nat, get_lo_ips
 from domain_check.run_support import ScreenshotBudgetAsync
 
@@ -57,8 +57,14 @@ def _safe_file_tag(text: str) -> str:
     return text.replace(".", "_").replace(":", "_").replace("/", "_")
 
 
-def _prepare_run_directory(cfg: AppConfig) -> tuple[Path, int]:
-    out_root = resolve_output_dir(cfg)
+def _prepare_run_directory(
+    cfg: AppConfig,
+    config_path: Path | None = None,
+    on_note: Callable[[str], None] | None = None,
+) -> tuple[Path, int]:
+    out_root, note = resolve_output_dir(cfg, config_path)
+    if note and on_note:
+        on_note(note)
     out_root.mkdir(parents=True, exist_ok=True)
     run_id = int(time.time())
     prefix = (cfg.output.excel_prefix or "domain_check").strip() or "domain_check"
@@ -77,8 +83,9 @@ def _write_excel_report(
     probe_by_pub_ip: dict[str, ProbeSummary],
 ) -> Path:
     wb = build_workbook(cfg, rows, urls, probe_by_pub_ip)
-    xlsx_path = run_dir / f"{cfg.output.excel_prefix}_{run_id}.xlsx"
-    wb.save(xlsx_path)
+    prefix = (cfg.output.excel_prefix or "domain_check").strip() or "domain_check"
+    xlsx_path = run_dir / f"{prefix}_{run_id}.xlsx"
+    save_workbook(wb, xlsx_path)
     return xlsx_path
 
 
@@ -300,12 +307,16 @@ def _run_wizard() -> int:
     return 0
 
 
-def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
+def run_skip_router_only(
+    cfg: AppConfig,
+    ui: RunUI,
+    config_path: Path | None = None,
+) -> Path:
     """不 SSH、不切 NAT：只对 urls 跑 Playwright，并写与正式流程相同结构的 Excel。"""
     validate_config_schema(cfg)
     validate_config(cfg, require_router=False)
 
-    run_dir, run_id = _prepare_run_directory(cfg)
+    run_dir, run_id = _prepare_run_directory(cfg, config_path, on_note=ui.step)
     urls = cfg.urls
     pub_ip = _SKIP_ROUTER_PUB_LABEL
 
@@ -350,13 +361,14 @@ def run_skip_router_only(cfg: AppConfig, ui: RunUI) -> Path:
     if cfg.probe.enabled:
         ui.step("探针（urllib）检测中…")
         probe_by[pub_ip] = run_probe_summary(cfg, None)
+    _warn_screenshot_budget(cfg, budget, ui)
     ui.step("写入 Excel …")
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path
 
 
-def run(cfg: AppConfig, ui: RunUI) -> Path:
+def run(cfg: AppConfig, ui: RunUI, config_path: Path | None = None) -> Path:
     validate_config_schema(cfg)
     validate_config(cfg)
 
@@ -366,7 +378,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
             f"未从接口 {cfg.router.lo_interface} 解析到任何可用 IP，请检查路由器输出与 ssh_encoding。"
         )
 
-    run_dir, run_id = _prepare_run_directory(cfg)
+    run_dir, run_id = _prepare_run_directory(cfg, config_path, on_note=ui.step)
     rows: list[tuple[str, list[UrlCheckResult]]] = []
     urls = cfg.urls
     probe_by: dict[str, ProbeSummary] = {}
@@ -387,6 +399,7 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
     ui.step(f"运行目录 {run_dir.name}")
     if emit:
         ui.step(f"JSON 事件日志: {log_path}")
+    _maybe_warn_screenshot_budget_preflight(cfg, len(ip_list), len(urls), ui)
 
     for round_index, pub_ip in enumerate(ip_list, start=1):
         ui.rule(f"出口 {pub_ip} (#{round_index}/{len(ip_list)})")
@@ -442,10 +455,41 @@ def run(cfg: AppConfig, ui: RunUI) -> Path:
 
         rows.append((pub_ip, results))
 
+    _warn_screenshot_budget(cfg, budget, ui)
     ui.step("写入 Excel …")
     xlsx_path = _write_excel_report(cfg, run_dir, run_id, rows, urls, probe_by)
     ui.done(xlsx_path)
     return xlsx_path
+
+
+def _warn_screenshot_budget(cfg: AppConfig, budget: ScreenshotBudgetAsync | None, ui: RunUI) -> None:
+    if budget is None or not budget.is_limited:
+        return
+    line = budget.summary_line()
+    if line:
+        ui.step(line)
+
+
+def _maybe_warn_screenshot_budget_preflight(
+    cfg: AppConfig,
+    n_ips: int,
+    n_urls: int,
+    ui: RunUI,
+) -> None:
+    cap = cfg.output.max_total_screenshot_bytes
+    if cap <= 0 or n_ips <= 0 or n_urls <= 0:
+        return
+    # 粗估每张 PNG ~350KB（1280×720 视口常见量级）
+    est = n_ips * n_urls * 350_000
+    if est <= cap:
+        return
+    mb_cap = cap / (1024 * 1024)
+    mb_est = est / (1024 * 1024)
+    ui.step(
+        f"预计截图约 {n_ips}×{n_urls}={n_ips * n_urls} 张（粗估 {mb_est:.0f} MB），"
+        f"超过 output.max_total_screenshot_bytes={mb_cap:.0f} MB；"
+        f"后半段可能无截图。建议调大该值或设为 0（不限制）。"
+    )
 
 
 class _PrintLicenseAction(argparse.Action):
@@ -592,9 +636,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cfg = load_config(cfg_path)
         if args.skip_router:
-            run_skip_router_only(cfg, ui)
+            run_skip_router_only(cfg, ui, config_path=cfg_path)
         else:
-            run(cfg, ui)
+            run(cfg, ui, config_path=cfg_path)
     except (
         ValueError,
         RuntimeError,

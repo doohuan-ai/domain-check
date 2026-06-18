@@ -5,6 +5,7 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 
 from __future__ import annotations
 
+import sys
 from importlib import resources
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -435,12 +436,56 @@ def load_config(path: Path | str | None = None) -> AppConfig:
     return _dict_to_appconfig(raw)
 
 
-def resolve_output_dir(cfg: AppConfig) -> Path:
-    d = cfg.output.dir.strip()
-    path = Path(d).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path
+_WIN_UNSAFE_OUTPUT_PARTS = frozenset({"system32", "syswow64"})
+
+
+def _is_unsafe_windows_output_path(path: Path) -> bool:
+    """Windows 系统目录不适合写入 xlsx（权限/杀软/重定向易导致损坏或打不开）。"""
+    if sys.platform != "win32":
+        return False
+    try:
+        parts = [p.casefold() for p in path.resolve().parts]
+    except OSError:
+        return True
+    for i, part in enumerate(parts):
+        if part in _WIN_UNSAFE_OUTPUT_PARTS:
+            return True
+        if part == "windows" and i + 1 < len(parts) and parts[i + 1] in _WIN_UNSAFE_OUTPUT_PARTS:
+            return True
+    return False
+
+
+def _fallback_output_root(config_path: Path | None) -> Path:
+    """系统目录不可用时的报告根目录：优先配置文件同级的 reports，否则用户主目录。"""
+    if config_path is not None:
+        try:
+            parent = config_path.expanduser().resolve().parent
+            if parent.is_dir() and not _is_unsafe_windows_output_path(parent):
+                return parent / "reports"
+        except OSError:
+            pass
+    return Path.home() / "domain-check-reports"
+
+
+def resolve_output_dir(cfg: AppConfig, config_path: Path | None = None) -> tuple[Path, str | None]:
+    """
+    解析报告根目录 ``output.dir``（相对路径基于进程 cwd）。
+
+    返回 ``(路径, 警示文案)``；Windows 下若落在 System32 等系统目录会自动改到安全位置。
+    """
+    d = (cfg.output.dir or ".").strip() or "."
+    rel = Path(d).expanduser()
+    path = rel.resolve() if rel.is_absolute() else (Path.cwd() / rel).resolve()
+
+    note: str | None = None
+    if _is_unsafe_windows_output_path(path):
+        fallback = _fallback_output_root(config_path)
+        note = (
+            f"报告目录位于 Windows 系统目录（{path}），Excel 可能无法写入或 WPS/Excel 打不开；"
+            f"已改到 {fallback}"
+        )
+        path = fallback
+    return path, note
 
 
 _WAIT_UNTIL_ALLOWED = frozenset({"load", "domcontentloaded", "networkidle", "commit"})
