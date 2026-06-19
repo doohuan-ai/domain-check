@@ -6,8 +6,8 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 
 ### 环境要求
 
-- **Python 3.10～3.12**
-- 本机已安装 **Google Chrome**
+- Python 3.10～3.12
+- 本机已安装 Google Chrome
 
 ### 安装
 
