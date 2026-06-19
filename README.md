@@ -13,15 +13,11 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 
 ```bash
 pip install "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
-syt-dc --version
-syt-dc --help
 ```
 
 ### 升级
 ```bash
 pip install --upgrade --force-reinstall "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
-syt-dc --version
-syt-dc --help
 ```
 
 ### 开发环境
