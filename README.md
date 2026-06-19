@@ -1,4 +1,4 @@
-# syt-dc — RouterOS 多出口 IP 网站可达性巡检
+# RouterOS 多出口 IP 网站可达性巡检
 
 Copyright (c) 2026 doohuan-ai (REEF Jones)
 
