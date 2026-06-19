@@ -42,7 +42,7 @@ def load_builtin_config_dict() -> dict[str, Any]:
 
 def read_builtin_config_yaml_text() -> str:
     """内置 YAML 原文（供 ``--template`` 与 ``load_builtin_config_dict``）。"""
-    return resources.files("domain_check").joinpath("builtin_config.yaml").read_text(encoding="utf-8")
+    return resources.files("syt_dc").joinpath("builtin_config.yaml").read_text(encoding="utf-8")
 
 
 @dataclass

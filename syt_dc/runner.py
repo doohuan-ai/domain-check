@@ -24,13 +24,13 @@ from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.text import Text
 import yaml
 
-from domain_check import distribution_version
-from domain_check.browser_check import (
+from syt_dc import distribution_version
+from syt_dc.browser_check import (
     UrlCheckResult,
     results_when_nat_skipped,
     run_urls_with_async_browser_sync,
 )
-from domain_check.cli_ui import (
+from syt_dc.cli_ui import (
     RunUI,
     print_cli_help,
     print_cli_missing_command_hint,
@@ -39,7 +39,7 @@ from domain_check.cli_ui import (
     themed_console,
     use_rich_for_stdout,
 )
-from domain_check.config import (
+from syt_dc.config import (
     AppConfig,
     load_config,
     read_builtin_config_yaml_text,
@@ -47,10 +47,10 @@ from domain_check.config import (
     validate_config,
     validate_config_schema,
 )
-from domain_check.probe_net import ProbeSummary, run_probe_summary
-from domain_check.reporting_excel import build_workbook, save_workbook
-from domain_check.router_ssh import change_nat, get_lo_ips
-from domain_check.run_support import ScreenshotBudgetAsync
+from syt_dc.probe_net import ProbeSummary, run_probe_summary
+from syt_dc.reporting_excel import build_workbook, save_workbook
+from syt_dc.router_ssh import change_nat, get_lo_ips
+from syt_dc.run_support import ScreenshotBudgetAsync
 
 
 def _safe_file_tag(text: str) -> str:

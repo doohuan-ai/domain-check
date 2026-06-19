@@ -10,7 +10,7 @@ import time
 
 import paramiko
 
-from domain_check.config import AppConfig
+from syt_dc.config import AppConfig
 
 
 def ssh_exec(cfg: AppConfig, cmd: str) -> str:

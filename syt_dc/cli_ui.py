@@ -20,7 +20,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
 
-from domain_check.browser_check import UrlCheckResult
+from syt_dc.browser_check import UrlCheckResult
 
 T = TypeVar("T")
 

@@ -1,4 +1,4 @@
-# RouterOS 多出口 IP 网站可达性巡检
+# syt-dc — RouterOS 多出口 IP 网站可达性巡检
 
 Copyright (c) 2026 doohuan-ai (REEF Jones)
 
@@ -7,17 +7,17 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 ### 环境要求
 
 - Python 3.10～3.12
-- 本机已安装 Google Chrome
+- 已安装 Google Chrome
 
 ### 安装
 
 ```bash
-pip install "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
+pip install "https://github.com/doohuan-ai/syt-dc/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
 ```
 
 ### 升级
 ```bash
-pip install --upgrade --force-reinstall "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
+pip install --upgrade --force-reinstall "https://github.com/doohuan-ai/syt-dc/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
 ```
 
 ### 开发环境

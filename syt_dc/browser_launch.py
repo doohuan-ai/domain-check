@@ -19,8 +19,8 @@ from typing import Any
 from playwright.async_api import Error as AsyncPlaywrightError
 from playwright.sync_api import Error as PlaywrightError
 
-from domain_check.chrome_resolve import find_chrome_executable
-from domain_check.config import AppConfig
+from syt_dc.chrome_resolve import find_chrome_executable
+from syt_dc.config import AppConfig
 
 CHROME_INSTALL_HINT = (
     "请先安装 Google Chrome（官方下载：https://www.google.com/chrome/ ）。\n"

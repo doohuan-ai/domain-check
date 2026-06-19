@@ -11,7 +11,7 @@ import time
 
 from playwright.async_api import Error as AsyncPlaywrightError
 
-from domain_check.config import AppConfig
+from syt_dc.config import AppConfig
 
 
 def _bad_href(href: str | None) -> bool:

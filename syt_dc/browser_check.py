@@ -21,16 +21,16 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
-from domain_check.browser_launch import (
+from syt_dc.browser_launch import (
     automation_cleanup_init_script,
     build_context_options,
     launch_google_chrome_async,
     launch_google_chrome_sync,
 )
-from domain_check.config import AppConfig
-from domain_check.precheck_net import run_url_precheck
-from domain_check.random_surfer import post_goto_random_surfer
-from domain_check.run_support import ScreenshotBudgetAsync
+from syt_dc.config import AppConfig
+from syt_dc.precheck_net import run_url_precheck
+from syt_dc.random_surfer import post_goto_random_surfer
+from syt_dc.run_support import ScreenshotBudgetAsync
 
 
 def _compact_error_message(err: str) -> str:

@@ -1,6 +1,6 @@
 [project]
 name = "syt-dc"
-version = "0.1.2"
+version = "0.1.3"
 description = "深云通 RouterOS 多出口 IP 网站可达性巡检"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -30,14 +30,14 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://www.doohuan.com/"
-Repository = "https://github.com/doohuan-ai/domain-check"
+Repository = "https://github.com/doohuan-ai/syt-dc"
 Contact = "https://www.doohuan.com/"
 
 [project.optional-dependencies]
 dev = ["build>=1.0.0", "twine>=5.0.0"]
 
 [project.scripts]
-syt-dc = "domain_check.runner:cli_entry"
+syt-dc = "syt_dc.runner:cli_entry"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]
@@ -45,7 +45,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["domain_check*"]
+include = ["syt_dc*"]
 
 [tool.setuptools.package-data]
-domain_check = ["builtin_config.yaml"]
+syt_dc = ["builtin_config.yaml"]

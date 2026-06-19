@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from domain_check.config import AppConfig
+from syt_dc.config import AppConfig
 
 
 @dataclass(frozen=True)

@@ -16,9 +16,9 @@ from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils.units import pixels_to_EMU
-from domain_check.browser_check import UrlCheckResult, format_cell_status
-from domain_check.config import AppConfig
-from domain_check.probe_net import ProbeSummary
+from syt_dc.browser_check import UrlCheckResult, format_cell_status
+from syt_dc.config import AppConfig
+from syt_dc.probe_net import ProbeSummary
 
 GREEN = PatternFill("solid", fgColor="C6EFCE")
 RED = PatternFill("solid", fgColor="FFC7CE")

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 
-from domain_check.config import AppConfig
+from syt_dc.config import AppConfig
 
 
 def _abbrev(url: str, max_len: int = 36) -> str:
