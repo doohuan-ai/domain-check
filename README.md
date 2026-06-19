@@ -9,43 +9,20 @@ Copyright (c) 2026 doohuan-ai (REEF Jones)
 - **Python 3.10～3.12**
 - 本机已安装 **Google Chrome**
 
-### 安装 syt-dc
-
-固定「最新」别名（URL 不变，内容随最新 Release 更新）：
+### 安装
 
 ```bash
-pipx install "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
-```
-
-安装后验证：
-
-```bash
+pip install "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
 syt-dc --version
 syt-dc --help
 ```
 
 ### 升级
-
-再次执行同一条 URL 并加强制重装：
-
 ```bash
-pipx install --force "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
-```
-
-升级后建议执行 `syt-dc --version` 确认版本。
-
-### 不用 pipx 时（pip + 虚拟环境）
-
-```bash
-python -m venv .venv
-# Windows: .\.venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
-pip install --upgrade pip
-pip install "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
+pip install --upgrade --force-reinstall "https://github.com/doohuan-ai/domain-check/releases/latest/download/syt_dc-0.post0-py3-none-any.whl"
 syt-dc --version
+syt-dc --help
 ```
-
-升级：`pip install --upgrade --force-reinstall "上述 whl URL"`
 
 ### 开发环境
 
